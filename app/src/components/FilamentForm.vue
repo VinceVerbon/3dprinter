@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import type { Filament, Effect } from '../types'
 import GradientPicker from './GradientPicker.vue'
 import EffectsPicker from './EffectsPicker.vue'
 import RatingStars from './RatingStars.vue'
+import { useFilamentLookup } from '../composables/useFilamentLookup'
+import { Sparkles } from 'lucide-vue-next'
 
 const props = defineProps<{ initial?: Filament }>()
 const emit = defineEmits<{ submit: [Filament]; cancel: [] }>()
 
 function uuid(): string {
-  // crypto.randomUUID is available in modern browsers; fallback if not.
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
@@ -29,6 +30,18 @@ const form = reactive<Filament>(
         added_at: new Date().toISOString(),
       },
 )
+
+const { lookup, loading, error } = useFilamentLookup()
+const lookupResult = ref<Filament['ai'] | null>(form.ai ?? null)
+
+async function runLookup(force = false) {
+  if (!form.brand || !form.name) return
+  const r = await lookup(form.brand, form.name, force)
+  if (r) {
+    lookupResult.value = r
+    form.ai = r
+  }
+}
 
 function syncStops() {
   form.swatch.hex = form.swatch.stops[0] ?? '#888888'
@@ -114,6 +127,40 @@ function onSubmit() {
         class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100 resize-y"
       ></textarea>
     </label>
+
+    <div class="border-t border-slate-800 pt-3 grid gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-400">AI usage info</span>
+        <button
+          type="button"
+          @click="runLookup(false)"
+          :disabled="!form.brand || !form.name || loading"
+          class="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded bg-violet-700/40 border border-violet-600/60 text-violet-100 hover:bg-violet-700/60 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Sparkles :size="14" /> {{ loading ? 'Looking up…' : (lookupResult ? 'Re-lookup' : 'Lookup AI') }}
+        </button>
+      </div>
+      <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
+      <div v-if="lookupResult" class="text-xs grid gap-1 text-slate-300">
+        <div><span class="text-slate-500">Type:</span> {{ lookupResult.type }}<span v-if="lookupResult.abrasive" class="ml-2 text-amber-400">⚠ abrasive</span></div>
+        <div>
+          <span class="text-slate-500">P2S+AMS 2 Pro:</span>
+          {{ lookupResult.p2s_compatibility.ams2pro ? '✓' : '✗' }}<template v-if="lookupResult.p2s_compatibility.hardened_nozzle_required">, hardened nozzle required</template>
+          <template v-if="lookupResult.p2s_compatibility.notes"> — {{ lookupResult.p2s_compatibility.notes }}</template>
+        </div>
+        <div v-if="lookupResult.drying.temp_c != null">
+          <span class="text-slate-500">Drying:</span> {{ lookupResult.drying.temp_c }}°C / {{ lookupResult.drying.hours }}h<template v-if="lookupResult.drying.desiccant_recommended">, desiccant recommended</template>
+        </div>
+        <div v-if="lookupResult.print_temp_c">
+          <span class="text-slate-500">Print:</span> {{ lookupResult.print_temp_c[0] }}–{{ lookupResult.print_temp_c[1] }}°C
+        </div>
+        <div v-if="lookupResult.bed_temp_c">
+          <span class="text-slate-500">Bed:</span> {{ lookupResult.bed_temp_c[0] }}–{{ lookupResult.bed_temp_c[1] }}°C
+        </div>
+        <p v-if="lookupResult.usage_notes" class="text-slate-400">{{ lookupResult.usage_notes }}</p>
+      </div>
+      <p v-else-if="!error" class="text-xs text-slate-500">Click <em>Lookup AI</em> after entering brand + name to fetch P2S compatibility, drying spec, and usage notes.</p>
+    </div>
 
     <div class="flex gap-2 justify-end">
       <button
