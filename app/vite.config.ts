@@ -1,42 +1,75 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { resolve } from 'path'
-import { spawn, type ChildProcess } from 'child_process'
-import type { Plugin } from 'vite'
+import { spawn, type ChildProcess } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// Vite plugin: spawn the helper process alongside `npm run dev` and kill it on shutdown.
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const PROJECT_ROOT = path.resolve(__dirname, '..')
+const HELPER_ENTRY = path.join(PROJECT_ROOT, 'helper', 'index.mjs')
+const HELPER_HOST = '127.0.0.1'
+const HELPER_PORT = 5174
+
+// Spawns the helper service as a child of `vite` in dev mode, passing
+// VITE_PID so the helper can kill Vite when its own heartbeat watchdog
+// fires (i.e. when the PWA window closes). Reverse direction: when Vite
+// exits, kill the helper child so it doesn't linger for ~45s waiting on
+// heartbeats that will never come.
 function helperPlugin(): Plugin {
   let child: ChildProcess | null = null
-  const start = () => {
-    if (child) return
-    const helperPath = resolve(__dirname, '../helper/index.mjs')
-    child = spawn(process.execPath, [helperPath], {
-      stdio: 'inherit',
-      env: { ...process.env, HELPER_PORT: '5174', VITE_PID: String(process.pid) },
-    })
-    child.on('exit', (code) => {
-      // eslint-disable-next-line no-console
-      console.log(`[helper] exited with code ${code}`)
-      child = null
-    })
-  }
+  let stopping = false
+
   const stop = () => {
-    if (!child) return
-    try { child.kill() } catch { /* noop */ }
-    child = null
+    if (stopping) return
+    stopping = true
+    if (child && child.exitCode === null && !child.killed) {
+      try {
+        child.kill('SIGTERM')
+      } catch {
+        /* child may already be gone — ignore */
+      }
+    }
   }
+
   return {
-    name: 'helper-plugin',
+    name: '3dprinter-helper',
     apply: 'serve',
-    configureServer(server) {
-      start()
+    configureServer(server: ViteDevServer) {
+      if (child) return
+
+      child = spawn(process.execPath, [HELPER_ENTRY], {
+        stdio: 'inherit',
+        env: {
+          ...process.env,
+          HELPER_PORT: String(HELPER_PORT),
+          VITE_PID: String(process.pid),
+        },
+      })
+
+      child.on('exit', (code, signal) => {
+        const reason = signal ?? (code != null ? `code ${code}` : 'unknown')
+        server.config.logger.info(`[helper] exited (${reason})`, { timestamp: true })
+        child = null
+      })
+
+      child.on('error', (err) => {
+        server.config.logger.error(`[helper] spawn failed: ${err.message}`, { timestamp: true })
+        child = null
+      })
+
+      // Vite shutdown paths.
       server.httpServer?.once('close', stop)
+      process.once('exit', stop)
+      process.once('SIGINT', stop)
+      process.once('SIGTERM', stop)
     },
     closeBundle: stop,
   }
 }
+
+const helperTarget = `http://${HELPER_HOST}:${HELPER_PORT}`
 
 export default defineConfig({
   plugins: [
@@ -60,14 +93,21 @@ export default defineConfig({
       },
     }),
   ],
-  resolve: { alias: { '@': resolve(__dirname, 'src') } },
+  resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
   server: {
     host: 'localhost',
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api': { target: 'http://127.0.0.1:5174', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
-      '/data': { target: 'http://127.0.0.1:5174', changeOrigin: true },
+      '/api': {
+        target: helperTarget,
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+      '/data': {
+        target: helperTarget,
+        changeOrigin: true,
+      },
     },
   },
   build: { target: 'es2022', outDir: 'dist' },

@@ -38,6 +38,7 @@ In dev (`npm run dev` in `app/`), the Vite plugin spawns this helper as a child 
 | `HELPER_PORT` | `5174` | Listen port (loopback only). |
 | `PROJECT_ROOT` | parent of `helper/` | Used to locate `data/`. |
 | `WATCHDOG_DISABLED` | unset | Set to `1` to disable the heartbeat watchdog (debugging). |
+| `VITE_PID` | unset | When set (numeric), helper sends `SIGTERM` to that PID before exiting. The Vite plugin in `app/vite.config.ts` populates this with `process.pid` so closing the PWA tears down the whole dev stack. Standalone helper leaves this unset and the kill is a no-op. |
 
 ## Endpoints
 
@@ -64,6 +65,18 @@ All responses are JSON. CORS is set to `http://127.0.0.1:5173` (the Vite dev ser
 - If no `/heartbeat` for 45 s, log `"watchdog: no heartbeat for 45s, exiting"` and `process.exit(0)`.
 - `WATCHDOG_DISABLED=1` disables the timer entirely.
 - The PWA emits a heartbeat every 15 s while its window is open; closing the window stops the heartbeats and the helper exits within 45 s.
+
+### Lifecycle (`VITE_PID` integration)
+
+When the helper is spawned by the Vite dev plugin (`app/vite.config.ts`), Vite sets `VITE_PID=<vite-pid>` in the helper's environment. On every exit path — watchdog timeout, `SIGINT`, or `SIGTERM` — the helper sends `SIGTERM` to that PID before exiting itself. This means closing the PWA window:
+
+1. App stops emitting heartbeats.
+2. Helper watchdog fires after ~45 s, logs the exit, **kills Vite**, then exits.
+3. Vite's plugin teardown also kills the helper child if Vite is stopped first (e.g. `Ctrl+C`), preventing the helper from lingering 45 s waiting for heartbeats that won't come.
+
+Standalone runs (`node helper/index.mjs` without Vite) leave `VITE_PID` unset and the kill is a no-op — prior behavior is preserved exactly.
+
+**Windows note:** Node maps `SIGTERM` to `TerminateProcess` (effectively `SIGKILL`). Vite shuts down ungracefully but cleanly enough — the dev server has no flushable state worth caring about.
 
 ### `/lookup-filament` flow
 
