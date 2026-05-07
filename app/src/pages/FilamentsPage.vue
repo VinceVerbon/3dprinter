@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
+import { useFilamentLookup } from '../composables/useFilamentLookup'
 import FilamentCard from '../components/FilamentCard.vue'
 import FilamentForm from '../components/FilamentForm.vue'
 import FilamentDetail from '../components/FilamentDetail.vue'
 import OrderDropZone, { type ImportResult } from '../components/OrderDropZone.vue'
 import OrderImportReview from '../components/OrderImportReview.vue'
 import type { Filament, Effect, FilamentType } from '../types'
-import { Plus, FileUp, X } from 'lucide-vue-next'
+import { Plus, FileUp, X, Sparkles } from 'lucide-vue-next'
 
 const store = useFilamentsStore()
+const { lookup } = useFilamentLookup()
 const showForm = ref(false)
 const editing = ref<Filament | undefined>(undefined)
 const detailing = ref<Filament | undefined>(undefined)
@@ -17,6 +19,34 @@ const saving = ref(false)
 const message = ref<string | null>(null)
 const showDropZone = ref(false)
 const importResult = ref<ImportResult | null>(null)
+
+// Batch AI lookup
+const batchRunning = ref(false)
+const batchProgress = ref<{ done: number; total: number; failed: number } | null>(null)
+const missingAi = computed(() => store.items.filter(f => !f.ai))
+async function lookupAllMissing() {
+  if (batchRunning.value) return
+  const targets = missingAi.value.slice()
+  if (targets.length === 0) return
+  batchRunning.value = true
+  batchProgress.value = { done: 0, total: targets.length, failed: 0 }
+  for (const f of targets) {
+    const r = await lookup(f.brand, f.name, false)
+    if (r) {
+      store.update(f.id, { ai: r })
+    } else {
+      batchProgress.value.failed += 1
+    }
+    batchProgress.value.done += 1
+  }
+  const res = await store.save()
+  batchRunning.value = false
+  const failed = batchProgress.value.failed
+  message.value = res.ok
+    ? `AI lookup done — ${batchProgress.value.done - failed} filled${failed ? `, ${failed} failed` : ''}.`
+    : (res.offlineFallback ? 'Helper offline — saved to localStorage.' : 'Save failed.')
+  setTimeout(() => { message.value = null; batchProgress.value = null }, 5000)
+}
 
 // Filters
 const filterType = ref<FilamentType | ''>('')
@@ -171,6 +201,21 @@ function onImportDone() {
         </span>
       </h2>
       <div class="flex gap-2">
+        <button
+          v-if="missingAi.length > 0 || batchRunning"
+          @click="lookupAllMissing"
+          :disabled="batchRunning"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-violet-600/60 bg-violet-700/30 text-violet-100 hover:bg-violet-700/50 disabled:opacity-60 disabled:cursor-not-allowed"
+          :title="`Run AI lookup for ${missingAi.length} filament${missingAi.length === 1 ? '' : 's'} without P2S info`"
+        >
+          <Sparkles :size="16" />
+          <template v-if="batchRunning && batchProgress">
+            Filling AI… {{ batchProgress.done }}/{{ batchProgress.total }}
+          </template>
+          <template v-else>
+            Fill missing AI ({{ missingAi.length }})
+          </template>
+        </button>
         <button
           @click="showDropZone = true"
           class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
