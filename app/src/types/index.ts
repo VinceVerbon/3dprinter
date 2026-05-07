@@ -6,7 +6,7 @@ export type FilamentType =
   | 'TPU' | 'PA' | 'PA-CF' | 'PC' | 'Other'
 
 export type Effect =
-  | 'matte' | 'silk' | 'sparkle' | 'marble' | 'metallic' | 'glow' | 'multicolor' | 'translucent'
+  | 'matte' | 'silk' | 'sparkle' | 'marble' | 'metallic' | 'glow' | 'multicolor' | 'translucent' | 'transparent'
 
 /** Multicolor uses 1–5 hex stops; non-multicolor uses just stops[0]. */
 export interface Swatch {
@@ -27,18 +27,40 @@ export interface FilamentAi {
   annealable: boolean | null
 }
 
+export interface FilamentPurchase {
+  date?: string               // ISO date
+  price_eur?: number
+  source?: string             // e.g. "bambulab.com", "123-3d.nl", "Amazon NL"
+  order_ref?: string          // order/invoice number
+}
+
+/** A record describes one (brand, name, variant) — i.e. one SKU-equivalent. Multiple physical spools of the same SKU are tracked via inventory counts, not duplicate records. */
+export interface FilamentInventory {
+  sealed: number              // unopened spools on the shelf
+  open: number                // opened, not currently loaded in the printer
+  in_use: number              // currently loaded in the AMS / direct extruder
+}
+
 export interface Filament {
   id: string                  // uuid
   brand: string
-  name: string                // exact product name, e.g. "PLA Basic"
-  variant?: string            // e.g. "Sunset Orange"
+  name: string                // exact product name as printed on label, e.g. "PLA Basic"
+  variant?: string            // human-readable color/finish, e.g. "Sunset Orange"
+  // --- supplier-stable identifiers (optional; the more we have, the better automated lookups work) ---
+  sku?: string                // supplier SKU, e.g. Bambu "G02-G0-1.75-1000-SPL"
+  product_url?: string        // canonical product page (used by the swatch + spec resolvers)
+  color_code?: string         // brand-internal color code printed on label (Bambu uses 2-char in SKU; MakerWorld uses 5-digit)
+  rfid_uid?: string           // Bambu AMS RFID UID (truly unique per spool — only meaningful for in_use slots; tracked via the printer)
+  ean?: string                // EAN/barcode (scan-on-receive)
+  // --- presentation + AI-derived ---
   swatch: Swatch
   ai?: FilamentAi             // populated by Lookup AI; otherwise undefined
   rating?: 1 | 2 | 3 | 4 | 5
   notes?: string
-  spool_state: 'sealed' | 'open' | 'in-use' | 'empty'
-  spool_grams_total?: number  // 1000 by default for Bambu refills
-  spool_grams_remaining?: number
+  // --- inventory ---
+  inventory: FilamentInventory
+  spool_grams_total?: number  // grams per spool for this SKU (1000 default for Bambu refills, 500 for support)
+  purchased?: FilamentPurchase
   added_at: string            // ISO date
 }
 

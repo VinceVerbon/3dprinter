@@ -26,7 +26,8 @@ const form = reactive<Filament>(
         swatch: { hex: '#888888', stops: ['#888888'], effects: [], source: 'manual' },
         rating: undefined,
         notes: '',
-        spool_state: 'sealed',
+        inventory: { sealed: 1, open: 0, in_use: 0 },
+        spool_grams_total: 1000,
         added_at: new Date().toISOString(),
       },
 )
@@ -100,18 +101,50 @@ function onSubmit() {
       <EffectsPicker v-model="form.swatch.effects" />
     </div>
 
+    <div class="grid gap-2">
+      <span class="text-sm text-slate-400">Inventory (spools by state)</span>
+      <div class="grid grid-cols-3 gap-3">
+        <label class="grid gap-1 text-xs">
+          <span class="text-slate-500">Sealed</span>
+          <input
+            v-model.number="form.inventory.sealed"
+            type="number"
+            min="0"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+        <label class="grid gap-1 text-xs">
+          <span class="text-slate-500">Open</span>
+          <input
+            v-model.number="form.inventory.open"
+            type="number"
+            min="0"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+        <label class="grid gap-1 text-xs">
+          <span class="text-slate-500">In use</span>
+          <input
+            v-model.number="form.inventory.in_use"
+            type="number"
+            min="0"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+      </div>
+    </div>
+
     <div class="grid grid-cols-2 gap-3">
       <label class="grid gap-1 text-sm">
-        <span class="text-slate-400">Spool state</span>
-        <select
-          v-model="form.spool_state"
+        <span class="text-slate-400">Spool weight (g)</span>
+        <input
+          v-model.number="form.spool_grams_total"
+          type="number"
+          min="0"
+          step="50"
           class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
-        >
-          <option value="sealed">sealed</option>
-          <option value="open">open</option>
-          <option value="in-use">in use</option>
-          <option value="empty">empty</option>
-        </select>
+          placeholder="1000"
+        />
       </label>
       <div class="grid gap-1 text-sm">
         <span class="text-slate-400">Rating</span>

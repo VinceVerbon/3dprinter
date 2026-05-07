@@ -1,0 +1,382 @@
+[
+  {
+    "id": "46cbb97d-2fbe-4dda-956d-38f8d9fad4ac",
+    "brand": "Bambu Lab",
+    "name": "Support for PLA/PETG",
+    "variant": "Nature",
+    "sku": "S05-C0-1.75-500-SPL",
+    "product_url": "https://eu.store.bambulab.com/products/support-for-pla-petg",
+    "color_code": "C0",
+    "swatch": {
+      "hex": "#f5f1e8",
+      "stops": ["#f5f1e8"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 1, "in_use": 0 },
+    "spool_grams_total": 500,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "7b313b99-3890-4522-8511-d1cd941340d4",
+    "brand": "Bambu Lab",
+    "name": "TPU for AMS",
+    "variant": "Black",
+    "color_code": "53101",
+    "product_url": "https://eu.store.bambulab.com/products/tpu-for-ams",
+    "swatch": {
+      "hex": "#1a1a1a",
+      "stops": ["#1a1a1a"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "10dd9730-a177-4251-870e-d1e9c50be71d",
+    "brand": "Bambu Lab",
+    "name": "TPU for AMS",
+    "variant": "Blue",
+    "color_code": "53600",
+    "product_url": "https://eu.store.bambulab.com/products/tpu-for-ams",
+    "swatch": {
+      "hex": "#1f5dc9",
+      "stops": ["#1f5dc9"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "9bde9484-81be-4d5a-8fdb-35a3cdb361d8",
+    "brand": "Bambu Lab",
+    "name": "TPU for AMS",
+    "variant": "Neon Green",
+    "color_code": "53500",
+    "product_url": "https://eu.store.bambulab.com/products/tpu-for-ams",
+    "swatch": {
+      "hex": "#a8ff33",
+      "stops": ["#a8ff33"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "f90d115a-69bd-4ec3-93dc-49ab1692e1e6",
+    "brand": "Bambu Lab",
+    "name": "PETG HF",
+    "variant": "Green",
+    "sku": "G02-G0-1.75-1000-SPL",
+    "color_code": "G0",
+    "product_url": "https://eu.store.bambulab.com/products/petg-hf",
+    "swatch": {
+      "hex": "#18a73d",
+      "stops": ["#18a73d"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "03ffe79e-e7fa-4bfb-9c89-72874d38724e",
+    "brand": "Bambu Lab",
+    "name": "PETG HF",
+    "variant": "Yellow",
+    "sku": "G02-Y0-1.75-1000-SPL",
+    "color_code": "Y0",
+    "product_url": "https://eu.store.bambulab.com/products/petg-hf",
+    "swatch": {
+      "hex": "#f4d31e",
+      "stops": ["#f4d31e"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "74336724-0d2a-471f-a877-7e3b71f56337",
+    "brand": "Bambu Lab",
+    "name": "PETG Basic",
+    "variant": "Black",
+    "sku": "G00-K0-1.75-1000-SPL",
+    "color_code": "K0",
+    "product_url": "https://eu.store.bambulab.com/products/petg-basic",
+    "swatch": {
+      "hex": "#1a1a1a",
+      "stops": ["#1a1a1a"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 2, "open": 0, "in_use": 1 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "75f01505-623a-46e1-944f-01db74be8b83",
+    "brand": "Bambu Lab",
+    "name": "PETG Basic",
+    "variant": "White",
+    "sku": "G00-W0-1.75-1000-SPL",
+    "color_code": "W0",
+    "product_url": "https://eu.store.bambulab.com/products/petg-basic",
+    "swatch": {
+      "hex": "#f8f8f8",
+      "stops": ["#f8f8f8"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "cc982fca-89b0-49ed-ae69-812afe3ae025",
+    "brand": "123-3D",
+    "name": "PETG",
+    "variant": "Flat Blue",
+    "swatch": {
+      "hex": "#1e3a8a",
+      "stops": ["#1e3a8a"],
+      "effects": ["matte"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "7212574f-e24d-4e87-b9b9-40f1fc8c790e",
+    "brand": "123-3D",
+    "name": "PETG",
+    "variant": "Transparent Blue",
+    "swatch": {
+      "hex": "#4a90e2",
+      "stops": ["#4a90e2"],
+      "effects": ["translucent"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "30eeeec3-c9ca-4fc4-a4c6-21c451eb236e",
+    "brand": "123-3D",
+    "name": "PETG",
+    "variant": "White",
+    "swatch": {
+      "hex": "#f8f8f8",
+      "stops": ["#f8f8f8"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "5918c3e3-7be1-477e-b830-f8ae0aacb11c",
+    "brand": "Real Filament",
+    "name": "PETG",
+    "variant": "Pink",
+    "product_url": "https://www.123-3d.nl/3D-filament/Filament-merk/REAL/1-75-mm-filament/1-75-mm-PETG-filament-p27058.html",
+    "swatch": {
+      "hex": "#f4a6b8",
+      "stops": ["#f4a6b8"],
+      "effects": ["transparent"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "1bd437bb-18c4-49c0-ab78-253313a72356",
+    "brand": "Real Filament",
+    "name": "PETG",
+    "variant": "Orange",
+    "product_url": "https://www.123-3d.nl/3D-filament/Filament-merk/REAL/1-75-mm-filament/1-75-mm-PETG-filament-p27058.html",
+    "swatch": {
+      "hex": "#ff6600",
+      "stops": ["#ff6600"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "760f4b50-d9e8-4381-902d-8553a44b8839",
+    "brand": "Bambu Lab",
+    "name": "PLA Silk+",
+    "variant": "Blue",
+    "sku": "A06-B1-1.75-1000-SPL",
+    "color_code": "B1",
+    "product_url": "https://eu.store.bambulab.com/products/pla-silk",
+    "swatch": {
+      "hex": "#1957c5",
+      "stops": ["#1957c5"],
+      "effects": ["silk"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 2, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "b69df23d-208a-4a51-a4ba-b3433898d317",
+    "brand": "Real Filament",
+    "name": "PLA Sparkle",
+    "variant": "Topaz Purple",
+    "sku": "DFP02135",
+    "product_url": "https://www.123-3d.nl/PLA/1-75-mm-PLA-Glitter-p313235.html",
+    "swatch": {
+      "hex": "#6a2da0",
+      "stops": ["#6a2da0"],
+      "effects": ["sparkle"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 500,
+    "notes": "REAL PLA Sparkle is sold in 0.5kg spools by default at 123-3d.nl",
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "300feaa8-3f5a-4bdc-9eca-05d6ee11b77e",
+    "brand": "Real Filament",
+    "name": "PLA Glow in the Dark",
+    "variant": "Green",
+    "product_url": "https://www.123-3d.nl/REAL-filament-glow-in-the-dark-1-75-mm-PLA-1-kg-i2637-t7428.html",
+    "swatch": {
+      "hex": "#b8e6c4",
+      "stops": ["#b8e6c4"],
+      "effects": ["glow"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "notes": "abrasive — phosphor particles wear standard nozzles; use hardened steel on the P2S",
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "163590f9-e6ed-492e-abce-6cc37c4a2c1a",
+    "brand": "Bambu Lab",
+    "name": "PLA Matte",
+    "variant": "Ivory White",
+    "sku": "A01-W2-1.75-1000-SPL",
+    "color_code": "W2",
+    "product_url": "https://eu.store.bambulab.com/products/pla-matte-filament",
+    "swatch": {
+      "hex": "#f8f4ec",
+      "stops": ["#f8f4ec"],
+      "effects": ["matte"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "e5a9412e-5625-4c76-b32f-92051cd0cee8",
+    "brand": "Bambu Lab",
+    "name": "PLA Matte",
+    "variant": "Mandarin Orange",
+    "sku": "A01-A2-1.75-1000-SPL",
+    "color_code": "A2",
+    "product_url": "https://eu.store.bambulab.com/products/pla-matte-filament",
+    "swatch": {
+      "hex": "#f99963",
+      "stops": ["#f99963"],
+      "effects": ["matte"],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "ca1867e2-a007-4901-ad0c-abda758d7fbd",
+    "brand": "Bambu Lab",
+    "name": "PLA Basic",
+    "variant": "Jade White",
+    "sku": "A00-W0-1.75-1000-SPL",
+    "color_code": "W0",
+    "product_url": "https://eu.store.bambulab.com/products/pla-basic-filament",
+    "swatch": {
+      "hex": "#f4f4f4",
+      "stops": ["#f4f4f4"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 0, "open": 0, "in_use": 1 },
+    "spool_grams_total": 1000,
+    "notes": "loaded in AMS",
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "53df52c8-9e26-4b9a-bf6b-aab1a759379e",
+    "brand": "Bambu Lab",
+    "name": "PLA Basic",
+    "variant": "Bambu Green",
+    "sku": "A00-G6-1.75-1000-SPL",
+    "color_code": "G6",
+    "product_url": "https://eu.store.bambulab.com/products/pla-basic-filament",
+    "swatch": {
+      "hex": "#00ae42",
+      "stops": ["#00ae42"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "e3c9fed2-edeb-4a6f-a95c-3769f87243a7",
+    "brand": "Bambu Lab",
+    "name": "PLA Basic",
+    "variant": "Gray",
+    "sku": "A00-D0-1.75-1000-SPL",
+    "color_code": "D0",
+    "product_url": "https://eu.store.bambulab.com/products/pla-basic-filament",
+    "swatch": {
+      "hex": "#8e8e8e",
+      "stops": ["#8e8e8e"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  },
+  {
+    "id": "a99043f8-837a-49f4-ae5e-a25c7c12ef90",
+    "brand": "Bambu Lab",
+    "name": "PLA Basic",
+    "variant": "Black",
+    "sku": "A00-K0-1.75-1000-SPL",
+    "color_code": "K0",
+    "product_url": "https://eu.store.bambulab.com/products/pla-basic-filament",
+    "swatch": {
+      "hex": "#1a1a1a",
+      "stops": ["#1a1a1a"],
+      "effects": [],
+      "source": "manual"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-05-08"
+  }
+]
