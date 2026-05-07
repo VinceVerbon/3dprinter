@@ -1,0 +1,22 @@
+# Local-only per global policy
+CLAUDE.md
+.claude/
+crosslog.md
+sessions/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# Worktrees (just in case anything ends up below the project root)
+.worktrees/
