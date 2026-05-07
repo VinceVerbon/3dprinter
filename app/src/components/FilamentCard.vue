@@ -16,8 +16,13 @@ defineEmits<{ edit: [string]; remove: [string] }>()
         <h3 class="font-medium truncate">{{ filament.brand }} &middot; {{ filament.name }}</h3>
         <span v-if="filament.variant" class="text-xs text-slate-400 truncate">{{ filament.variant }}</span>
       </div>
-      <div class="flex items-center gap-3 text-xs text-slate-400 mt-1">
-        <span>{{ filament.spool_state }}</span>
+      <div class="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
+        <span>
+          <span class="text-slate-200 font-medium">{{ filament.inventory.sealed + filament.inventory.open + filament.inventory.in_use }}</span> spool<template v-if="(filament.inventory.sealed + filament.inventory.open + filament.inventory.in_use) !== 1">s</template>
+          <span class="text-slate-500">
+            (<template v-if="filament.inventory.sealed">{{ filament.inventory.sealed }} sealed</template><template v-if="filament.inventory.sealed && (filament.inventory.open || filament.inventory.in_use)">, </template><template v-if="filament.inventory.open">{{ filament.inventory.open }} open</template><template v-if="filament.inventory.open && filament.inventory.in_use">, </template><template v-if="filament.inventory.in_use">{{ filament.inventory.in_use }} in use</template>)
+          </span>
+        </span>
         <span v-if="filament.swatch.effects.length">{{ filament.swatch.effects.join(', ') }}</span>
         <RatingStars :model-value="filament.rating" @update:model-value="() => {}" />
       </div>

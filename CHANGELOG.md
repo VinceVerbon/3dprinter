@@ -5,8 +5,13 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 ## [Unreleased]
 
 ### Added
+- Initial filament catalogue seed at `data/filaments.json` — 22 records covering 26 physical spools (19 Bambu Lab, 3 123-3D, 4 Real Filament). Bambu records carry full SKUs (e.g. `A00-K0-1.75-1000-SPL`), color codes, and `product_url` to `eu.store.bambulab.com`. Real Filament records reference 123-3d.nl product/category pages.
+- `Effect` enum gained `transparent` (in addition to `translucent`) for fully see-through filaments.
 
 ### Changed
+- **Filament data model**: replaced per-spool `spool_state` with per-record `inventory: { sealed, open, in_use }`. Each record now describes one (brand, name, variant) — i.e. one SKU-equivalent — and physical spools of that SKU are counted, not duplicated as separate records.
+- `FilamentForm.vue`: state dropdown replaced with three count inputs + a spool-weight (g) field.
+- `FilamentCard.vue`: now shows `N spools (a sealed, b open, c in use)`.
 
 ### Fixed
 
