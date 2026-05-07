@@ -21,9 +21,34 @@ const HOST = '127.0.0.1';
 const PORT = parseInt(process.env.HELPER_PORT || '5174', 10);
 const ALLOWED_ORIGIN = 'http://127.0.0.1:5173';
 
+// Set by the Vite plugin in app/vite.config.ts when this helper is spawned
+// as a child of `npm run dev`. When the heartbeat watchdog fires (PWA closed)
+// or the helper receives SIGINT/SIGTERM, we forward SIGTERM to the Vite PID
+// so the whole dev stack tears down together. Unset (standalone helper) =>
+// killVite() is a no-op and prior behavior is preserved.
+const VITE_PID = (() => {
+  const raw = parseInt(process.env.VITE_PID || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+})();
+
 const STARTED_AT = new Date().toISOString();
 let watchdogResetAt = Date.now();
 let lastHeartbeatIso = null;
+let viteKilled = false;
+
+function killVite(reason) {
+  if (viteKilled || VITE_PID == null) return;
+  viteKilled = true;
+  try {
+    process.kill(VITE_PID, 'SIGTERM');
+    console.log(`[helper] sent SIGTERM to vite pid=${VITE_PID} (${reason})`);
+  } catch (err) {
+    // ESRCH = process already gone (e.g. user already Ctrl+C'd Vite).
+    if (err && err.code !== 'ESRCH') {
+      console.error(`[helper] failed to kill vite pid=${VITE_PID}:`, err.message || err);
+    }
+  }
+}
 
 const FILE_RE_FLAT = /^[a-z0-9-]+\.json$/;
 const FILE_RE_READ = /^([a-z0-9-]+\/)?[a-z0-9-]+\.json$/;
@@ -274,6 +299,7 @@ if (process.env.WATCHDOG_DISABLED === '1') {
   watchdogTimer = setInterval(() => {
     if (Date.now() - watchdogResetAt > 45_000) {
       console.log('watchdog: no heartbeat for 45s, exiting');
+      killVite('watchdog timeout');
       process.exit(0);
     }
   }, 5_000);
@@ -287,6 +313,7 @@ server.listen(PORT, HOST, () => {
 function shutdown(sig) {
   console.log(`received ${sig}, shutting down`);
   if (watchdogTimer) clearInterval(watchdogTimer);
+  killVite(sig);
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 }

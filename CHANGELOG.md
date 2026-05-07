@@ -7,6 +7,7 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 ### Added
 - Initial filament catalogue seed at `data/filaments.json` — 22 records covering 26 physical spools (19 Bambu Lab, 3 123-3D, 4 Real Filament). Bambu records carry full SKUs (e.g. `A00-K0-1.75-1000-SPL`), color codes, and `product_url` to `eu.store.bambulab.com`. Real Filament records reference 123-3d.nl product/category pages.
 - `Effect` enum gained `transparent` (in addition to `translucent`) for fully see-through filaments.
+- **Chunk D — Vite ↔ helper lifecycle wiring** (`helperPlugin` in `app/vite.config.ts`, `VITE_PID` env in `helper/index.mjs`). The Vite dev plugin now spawns the helper as a child process with `VITE_PID=<vite-pid>` in its env, and proxies `/api/*` (rewriting `/api` → `/`) and `/data/*` to the helper on `127.0.0.1:5174`. The helper, on watchdog timeout / SIGINT / SIGTERM, sends `SIGTERM` to that PID before exiting. Closing the PWA window now tears down both processes — closes the v0.1 known issue where Vite kept running after the app window was closed. Standalone helper (no Vite parent) is unaffected.
 
 ### Changed
 - **Filament data model**: replaced per-spool `spool_state` with per-record `inventory: { sealed, open, in_use }`. Each record now describes one (brand, name, variant) — i.e. one SKU-equivalent — and physical spools of that SKU are counted, not duplicated as separate records.
@@ -14,6 +15,7 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 - `FilamentCard.vue`: now shows `N spools (a sealed, b open, c in use)`.
 
 ### Fixed
+- v0.1 known issue: closing the PWA `--app` window left `vite` running on port 5173 because only the helper self-terminated via the heartbeat watchdog. Now resolved via Chunk D (see Added).
 
 ## [0.1.0] — 2026-05-08
 
