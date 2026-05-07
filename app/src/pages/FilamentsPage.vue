@@ -3,27 +3,135 @@ import { onMounted, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
 import FilamentCard from '../components/FilamentCard.vue'
 import FilamentForm from '../components/FilamentForm.vue'
+import FilamentDetail from '../components/FilamentDetail.vue'
 import OrderDropZone, { type ImportResult } from '../components/OrderDropZone.vue'
 import OrderImportReview from '../components/OrderImportReview.vue'
-import type { Filament } from '../types'
-import { Plus, FileUp } from 'lucide-vue-next'
+import type { Filament, Effect, FilamentType } from '../types'
+import { Plus, FileUp, X } from 'lucide-vue-next'
 
 const store = useFilamentsStore()
 const showForm = ref(false)
 const editing = ref<Filament | undefined>(undefined)
+const detailing = ref<Filament | undefined>(undefined)
 const saving = ref(false)
 const message = ref<string | null>(null)
 const showDropZone = ref(false)
 const importResult = ref<ImportResult | null>(null)
 
+// Filters
+const filterType = ref<FilamentType | ''>('')
+const filterEffect = ref<Effect | ''>('')
+const filterColor = ref<string>('')   // color family key, see COLOR_FAMILIES below
+
 onMounted(() => store.load())
 
-const filaments = computed(() => store.items)
+// --- Color families: map a hex to one of these buckets via HSL ---
+type ColorFamily = 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink' | 'black' | 'white' | 'gray' | 'brown'
+const COLOR_FAMILIES: { key: ColorFamily; label: string; sample: string }[] = [
+  { key: 'red',    label: 'Red',    sample: '#dc2626' },
+  { key: 'orange', label: 'Orange', sample: '#ea580c' },
+  { key: 'yellow', label: 'Yellow', sample: '#eab308' },
+  { key: 'green',  label: 'Green',  sample: '#16a34a' },
+  { key: 'cyan',   label: 'Cyan',   sample: '#0891b2' },
+  { key: 'blue',   label: 'Blue',   sample: '#2563eb' },
+  { key: 'purple', label: 'Purple', sample: '#7c3aed' },
+  { key: 'pink',   label: 'Pink',   sample: '#db2777' },
+  { key: 'brown',  label: 'Brown',  sample: '#78350f' },
+  { key: 'black',  label: 'Black',  sample: '#0f172a' },
+  { key: 'gray',   label: 'Gray',   sample: '#64748b' },
+  { key: 'white',  label: 'White',  sample: '#f1f5f9' },
+]
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return null
+  const r = parseInt(m[1].slice(0, 2), 16) / 255
+  const g = parseInt(m[1].slice(2, 4), 16) / 255
+  const b = parseInt(m[1].slice(4, 6), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  let h = 0, s = 0
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 }
+}
+
+function colorFamily(hex: string): ColorFamily {
+  const hsl = hexToHsl(hex)
+  if (!hsl) return 'gray'
+  const { h, s, l } = hsl
+  if (l < 12) return 'black'
+  if (l > 90 && s < 15) return 'white'
+  if (s < 12) return 'gray'
+  // Brownish: low-medium lightness, hue red/orange/yellow with desaturation
+  if (l < 45 && s < 55 && h >= 10 && h <= 50) return 'brown'
+  if (h < 15 || h >= 345) return 'red'
+  if (h < 40)  return 'orange'
+  if (h < 65)  return 'yellow'
+  if (h < 165) return 'green'
+  if (h < 200) return 'cyan'
+  if (h < 250) return 'blue'
+  if (h < 290) return 'purple'
+  return 'pink'
+}
+
+function filamentMatchesColor(f: Filament, family: string): boolean {
+  if (!family) return true
+  return f.swatch.stops.some(h => colorFamily(h) === family) || colorFamily(f.swatch.hex) === family
+}
+
+const filtered = computed<Filament[]>(() => {
+  return store.items.filter(f => {
+    if (filterType.value && f.ai?.type !== filterType.value) return false
+    if (filterEffect.value && !f.swatch.effects.includes(filterEffect.value)) return false
+    if (!filamentMatchesColor(f, filterColor.value)) return false
+    return true
+  })
+})
+
+// Available facet options derived from current data so we never offer empty filters
+const availableTypes = computed<FilamentType[]>(() => {
+  const set = new Set<FilamentType>()
+  for (const f of store.items) if (f.ai?.type) set.add(f.ai.type)
+  return Array.from(set).sort()
+})
+const availableEffects = computed<Effect[]>(() => {
+  const set = new Set<Effect>()
+  for (const f of store.items) for (const e of f.swatch.effects) set.add(e)
+  return Array.from(set).sort()
+})
+const availableColors = computed(() => {
+  const set = new Set<ColorFamily>()
+  for (const f of store.items) {
+    set.add(colorFamily(f.swatch.hex))
+    for (const h of f.swatch.stops) set.add(colorFamily(h))
+  }
+  return COLOR_FAMILIES.filter(c => set.has(c.key))
+})
+
+const hasFilters = computed(() => filterType.value || filterEffect.value || filterColor.value)
+function clearFilters() {
+  filterType.value = ''
+  filterEffect.value = ''
+  filterColor.value = ''
+}
 
 function startAdd() { editing.value = undefined; showForm.value = true; message.value = null }
 function startEdit(id: string) {
   const f = store.items.find(x => x.id === id)
   if (f) { editing.value = f; showForm.value = true; message.value = null }
+}
+function openDetail(id: string) {
+  const f = store.items.find(x => x.id === id)
+  if (f) detailing.value = f
 }
 async function onSubmit(f: Filament) {
   if (editing.value) store.update(f.id, f)
@@ -56,7 +164,12 @@ function onImportDone() {
 <template>
   <section class="max-w-3xl">
     <header class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold">Filaments <span class="text-slate-500 font-normal">({{ store.count }})</span></h2>
+      <h2 class="text-lg font-semibold">
+        Filaments
+        <span class="text-slate-500 font-normal">
+          ({{ filtered.length }}<template v-if="filtered.length !== store.count"> of {{ store.count }}</template>)
+        </span>
+      </h2>
       <div class="flex gap-2">
         <button
           @click="showDropZone = true"
@@ -74,6 +187,64 @@ function onImportDone() {
       </div>
     </header>
 
+    <!-- Filters -->
+    <div
+      v-if="store.count > 0"
+      class="mb-4 grid gap-2 text-xs"
+    >
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="flex items-center gap-1.5">
+          <span class="text-slate-500">Type</span>
+          <select
+            v-model="filterType"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          >
+            <option value="">all</option>
+            <option v-for="t in availableTypes" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-1.5">
+          <span class="text-slate-500">Effect</span>
+          <select
+            v-model="filterEffect"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          >
+            <option value="">all</option>
+            <option v-for="e in availableEffects" :key="e" :value="e">{{ e }}</option>
+          </select>
+        </label>
+        <button
+          v-if="hasFilters"
+          @click="clearFilters"
+          class="flex items-center gap-1 text-slate-400 hover:text-slate-100 px-2 py-1 rounded border border-transparent hover:border-slate-700"
+        >
+          <X :size="12" /> clear
+        </button>
+      </div>
+      <div v-if="availableColors.length > 0" class="flex items-center gap-2 flex-wrap">
+        <span class="text-slate-500">Color</span>
+        <button
+          @click="filterColor = ''"
+          class="text-xs px-2 py-0.5 rounded border"
+          :class="filterColor === '' ? 'border-sky-500 text-sky-300' : 'border-slate-700 text-slate-400 hover:text-slate-100'"
+        >all</button>
+        <button
+          v-for="c in availableColors"
+          :key="c.key"
+          @click="filterColor = filterColor === c.key ? '' : c.key"
+          class="flex items-center gap-1.5 px-2 py-0.5 rounded border"
+          :class="filterColor === c.key ? 'border-sky-500 text-sky-300' : 'border-slate-700 text-slate-400 hover:text-slate-100'"
+          :title="c.label"
+        >
+          <span
+            class="inline-block w-3.5 h-3.5 rounded-full border border-slate-700"
+            :style="{ backgroundColor: c.sample }"
+          ></span>
+          {{ c.label }}
+        </button>
+      </div>
+    </div>
+
     <p v-if="message" class="text-sm text-slate-400 mb-3">{{ message }}</p>
     <p v-if="saving" class="text-xs text-slate-500 mb-3">Saving…</p>
 
@@ -85,14 +256,30 @@ function onImportDone() {
       />
     </div>
 
-    <div v-if="filaments.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg">
+    <div v-if="store.items.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg">
       No filaments yet. Click <em>Add filament</em> to add one manually, or <em>Import order</em> to drop a PDF receipt.
     </div>
+    <div v-else-if="filtered.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg">
+      No filaments match the current filters.
+      <button @click="clearFilters" class="text-sky-400 hover:underline ml-1">Clear filters</button>
+    </div>
     <ul v-else class="grid gap-2">
-      <li v-for="f in filaments" :key="f.id">
-        <FilamentCard :filament="f" @edit="startEdit" @remove="onRemove" />
+      <li v-for="f in filtered" :key="f.id">
+        <div
+          @click="(e) => { if (!(e.target as HTMLElement).closest('button')) openDetail(f.id) }"
+          class="cursor-pointer rounded-lg hover:ring-1 hover:ring-sky-500/40 transition-shadow"
+        >
+          <FilamentCard :filament="f" @edit="startEdit" @remove="onRemove" />
+        </div>
       </li>
     </ul>
+
+    <FilamentDetail
+      v-if="detailing"
+      :filament="detailing"
+      @close="detailing = undefined"
+      @edit="startEdit"
+    />
 
     <OrderDropZone
       v-if="showDropZone"
