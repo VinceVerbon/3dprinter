@@ -249,3 +249,136 @@ When merging back: rebase onto `main` and resolve `crosslog.md` by appending eac
 **Estimated effort:** 30–45 min. Two files, ~30 LOC of changes, manual smoke test.
 
 **PR title:** `feat(chunk-d): vite dev-server killed alongside helper on heartbeat-watchdog exit`
+
+---
+
+## Chunk E — Per-supplier swatch resolvers (v0.2)
+
+**Status (2026-05-08):** unclaimed. Best fit: Chat A (continues helper work).
+
+**Scope:** Replace the `/lookup-swatch` stub with real per-supplier resolvers. When the user enters brand + name (and optionally color name / SKU), the helper tries supplier-specific paths in order, returning a hex color and effects when found, or `null` for the manual-picker fallback.
+
+**Allowed paths (only edit these):**
+- `helper/index.mjs` — extend `/lookup-swatch` and add resolver dispatch
+- `helper/lib/swatch-resolvers/` — one module per supplier (`bambu.mjs`, `sunlu.mjs`, `123-3d.mjs`, `realfilament.mjs`, `firecrawl.mjs`)
+- `helper/README.md` — document the resolver chain and cache
+- `data/swatch-cache.json` — created on first hit; same atomic-write pattern as ai-cache
+
+**DO NOT TOUCH:** `app/**`, `data/catalog/**`, `data/filaments.json` (Chat C), `scripts/**`.
+
+**Resolver contract:**
+
+```js
+// each resolver: async function(brand, name, hints?) -> ResolverResult | null
+//   hints: { sku?: string, product_url?: string, color_code?: string }
+//   ResolverResult: { hex: string, source: 'bambu'|'sunlu'|..., confidence: 'high'|'low', effects?: Effect[], stops?: string[] }
+//   null = no match; the dispatcher tries the next resolver
+```
+
+**Dispatch order (helper/index.mjs):**
+
+1. Brand-specific resolver if the brand string matches a known supplier (Bambu / SUNLU / 123-3d / RealFilament).
+2. If no match or brand unknown → generic Firecrawl-based resolver (`scrape product page → extract dominant hex from primary product image`).
+3. If everything returns null → respond `{ hex: null, source: null, confidence: 'none' }` (the app falls back to manual color picker).
+
+**Per-supplier implementation hints:**
+
+| Supplier | Approach |
+|---|---|
+| **Bambu Lab** | Use the public Bambu Studio / OrcaSlicer filament library JSON. The Bambu Studio repo at `github.com/bambulab/BambuStudio` ships a `resources/profiles/BBL/filament/*.json` tree; clone or fetch via raw.githubusercontent.com. Match on `(brand, name, variant)` → `filament_colour` field. Highest confidence; no scraping. Cache the catalog file locally for 7 days. |
+| **SUNLU** | Their store uses Shopify; product pages have a structured `<script type="application/ld+json">` block with image + variant info. Fetch by `https://www.sunlu.com/products/<slug>`, regex slug from name. Pull dominant color from main image (use `node-vibrant` or similar — small dep, justified). Confidence: low. |
+| **123-3d.nl** | Dutch retailer, also Magento-style listings. Search-then-scrape: GET `https://www.123-3d.nl/catalogsearch/result/?q=<brand>+<name>` → first product card → product page → image → dominant color. Confidence: low. |
+| **RealFilament** | `realfilament.com` — small catalog, often has hex codes in product description. Search-then-scrape similar to 123-3d. Confidence: low. |
+| **Firecrawl fallback** | `$FIRECRAWL_API_KEY` env var (lives on the local workstation). POST to `https://api.firecrawl.dev/v1/scrape` with `{url, formats: ['extract'], extract: {schema: {hex: 'string', effects: 'string[]'}}}`. Confidence: low. Use only when no brand resolver matched. |
+
+**Caching:**
+- `data/swatch-cache.json`, key = `${brand}|${name}|${color_code||variant||''}`, value = `ResolverResult`. Same shape as ai-cache.
+- Cache hit returns immediately. On miss, dispatch and cache the result (including null misses, with a 24 h TTL on negatives so the user can retry tomorrow without losing today's work).
+
+**Acceptance criteria:**
+- `POST /lookup-swatch {brand:'Bambu Lab', name:'PLA Basic', color_code:'10101'}` returns `{ hex: '#FFFFFF', source: 'bambu', confidence: 'high' }` (Bambu's "Jade White" color code is `10101`).
+- `POST /lookup-swatch {brand:'SUNLU', name:'PLA+ Sky Blue'}` returns either a SUNLU-sourced hex or null.
+- `POST /lookup-swatch {brand:'Brand-Nobody-Has-Heard-Of', name:'X'}` falls through to Firecrawl, then returns `{ hex: null, source: null, confidence: 'none' }`.
+- Cache hit doesn't re-fetch (verify by adding a debug log).
+- Negative cache expires after 24 h.
+- App-side: `useFilamentLookup`-style composable `useSwatchLookup` (Chat B will add this in `app/src/composables/` when Chunk E lands — out of scope for this chunk).
+
+**Estimated effort:** 2–3 hours. Bambu resolver alone is ~1 hour and would already deliver 80% of the user's current spool collection. Land Bambu first as a smaller PR if you want to ship incrementally.
+
+**PR title:** `feat(chunk-e): swatch resolver chain (Bambu library + scrapers + Firecrawl fallback)`
+
+---
+
+## Chunk F — PDF order import (drop-zone) (v0.2)
+
+**Status (2026-05-08):** unclaimed (helper side). Frontend side is in flight on Chat B (`app/src/components/OrderDropZone.vue` + import flow).
+
+**Scope:** User drops a PDF order receipt (Bambu Lab EU, 123-3d.nl, Amazon NL, etc.) onto a drop-zone in the app. The helper extracts the line-items via Claude, returns a list of filaments + accessories with quantities. The app previews the extraction, the user confirms/edits, and matched filament products get their `inventory.sealed` count bumped (new ones get added as fresh entries).
+
+**Allowed paths (helper side — Chat A or whoever claims):**
+- `helper/index.mjs` — add `POST /import-order` endpoint
+- `helper/lib/order-parsers/` — optional per-vendor heuristics if generic Claude extraction needs help
+- `helper/README.md` — document the endpoint
+- `data/order-imports/` — optional: archive each parsed order JSON for audit (gitignored — local-only)
+
+**DO NOT TOUCH:** anything under `app/**`, `data/catalog/**`, `data/filaments.json`.
+
+**Endpoint contract:**
+
+```
+POST /import-order
+Content-Type: multipart/form-data
+  pdf: <binary>
+  filename: <string>     # original filename for context
+
+→ 200 {
+    ok: true,
+    vendor_guess: "bambu" | "123-3d" | "amazon-nl" | "unknown",
+    order_ref?: string,
+    order_date?: string,    // ISO
+    items: [
+      {
+        kind: "filament" | "accessory" | "consumable" | "unknown",
+        brand: string,
+        name: string,
+        variant?: string,    // color name if filament
+        sku?: string,
+        ean?: string,
+        quantity: number,
+        unit_price_eur?: number,
+        total_eur?: number
+      }
+    ],
+    total_eur?: number,
+    raw_text_preview?: string   // first 500 chars of extracted text for debugging
+  }
+
+Errors: 400 invalid_pdf | 504 timeout | 500 parse_error
+```
+
+**Implementation hint:** the `claude` CLI accepts file inputs via `@path` syntax in the prompt. Save the upload to a temp file, then:
+
+```js
+const promptFile = await writeTempFile(`Extract a structured order from this PDF. Return ONLY JSON matching this schema: {...}. PDF: @${pdfPath}`);
+spawn('claude', ['--print', '--output-format', 'json', '--model', 'claude-sonnet-4-6']);
+// pipe promptFile via stdin (same pattern as /lookup-filament).
+```
+
+For Bambu Lab EU receipts specifically, line items already have SKUs + EANs in the PDF; Claude should pick them up cleanly without per-vendor heuristics. Only add `helper/lib/order-parsers/` if generic extraction misses fields the user needs.
+
+**Acceptance criteria:**
+- A real Bambu Lab EU PDF order returns `items[]` with brand/name/sku/quantity for each line.
+- A 123-3d.nl PDF returns plausible items even without a per-vendor parser.
+- Total > 30 s timeouts respond `504 timeout` and don't hang the helper.
+- Multipart upload size capped at 10 MB; over → 413.
+- Frontend (Chat B) flow already calls `POST /api/import-order` and renders the preview/confirm UI; just plug your endpoint in.
+
+**Frontend side (Chat B's territory):**
+- `app/src/components/OrderDropZone.vue` — drag-and-drop, file input fallback, posts to `/api/import-order`.
+- Preview modal: shows extracted items with kind/brand/name/qty, lets user toggle each item on/off, edit quantity, choose match vs. new entry for filaments.
+- On confirm: increment `filament.inventory.sealed` for matches, push new entries for unmatched. Save filaments.json via existing `useDataPersistence`.
+- Mounted on Filaments page header (and maybe a dedicated "Import order" page).
+
+**Estimated effort (helper side):** 1.5–2 hours.
+
+**PR title:** `feat(chunk-f): /import-order endpoint with claude PDF extraction`
