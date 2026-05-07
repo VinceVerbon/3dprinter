@@ -4,18 +4,41 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-08
+
 ### Added
-- Initial filament catalogue seed at `data/filaments.json` — 22 records covering 26 physical spools (19 Bambu Lab, 3 123-3D, 4 Real Filament). Bambu records carry full SKUs (e.g. `A00-K0-1.75-1000-SPL`), color codes, and `product_url` to `eu.store.bambulab.com`. Real Filament records reference 123-3d.nl product/category pages.
-- `Effect` enum gained `transparent` (in addition to `translucent`) for fully see-through filaments.
-- **Chunk D — Vite ↔ helper lifecycle wiring** (`helperPlugin` in `app/vite.config.ts`, `VITE_PID` env in `helper/index.mjs`). The Vite dev plugin now spawns the helper as a child process with `VITE_PID=<vite-pid>` in its env, and proxies `/api/*` (rewriting `/api` → `/`) and `/data/*` to the helper on `127.0.0.1:5174`. The helper, on watchdog timeout / SIGINT / SIGTERM, sends `SIGTERM` to that PID before exiting. Closing the PWA window now tears down both processes — closes the v0.1 known issue where Vite kept running after the app window was closed. Standalone helper (no Vite parent) is unaffected.
+- **Vite ↔ helper lifecycle wiring (Chunk D)**: `helperPlugin` in `app/vite.config.ts` now spawns the helper as a child process with `VITE_PID=<vite-pid>` in its env, and proxies `/api/*` (rewriting `/api` → `/`) and `/data/*` to the helper on `127.0.0.1:5174`. The helper, on watchdog timeout / SIGINT / SIGTERM, sends `SIGTERM` to that PID before exiting. Closing the PWA window now tears down both processes. Standalone helper (no Vite parent) is unaffected.
+- **Filament catalogue seed** at `data/filaments.json` — 22 records covering 26 physical spools (19 Bambu Lab, 3 123-3D, 4 Real Filament). Bambu records carry full SKUs (e.g. `A00-K0-1.75-1000-SPL`), color codes, and `product_url` to `eu.store.bambulab.com`. Real Filament records reference 123-3d.nl product/category pages. Every record's `ai` block is populated (P2S compatibility, drying, print/bed temps, usage notes, abrasive flag).
+- **Catalog seed**: `data/catalog/replacement-parts.json` (33 P2S parts with verified Bambu SKUs and EUR price estimates) + `data/catalog/consumables.json` (16 entries biased to NL retailers — Magigoo, 3DLAC, silica, Sunlu FilaDryer, Capricorn PTFE, IPA, brass brush).
+- **Accessory CRUD UI**: list / add / edit / remove with category filter (nozzles, hotends, build plates, AMS parts, fans, belts, lubricants, glues, desiccants, tools, cleaning).
+- **Shopping list page**: free-text entry + "Add from catalog" picker pulling from the catalog seeds. Tick-off state persists. Print-friendly view.
+- **PDF order import**: drag-drop a Bambu / 123-3d.nl / Amazon NL invoice PDF onto the Filaments page → preview + confirm UI → match on SKU/EAN/brand+name+variant. Matches bump `inventory.sealed`; misses create new entries with full purchase metadata. Frontend complete; helper-side `/import-order` endpoint queued as Chunk F for v0.3.
+- **Filament detail modal** (click any card): SKU, color code, EAN, RFID UID, product URL, full P2S+AMS 2 Pro AI block, drying spec, print/bed temps, annealability, purchase metadata, inventory tiles. Re-lookup button refreshes AI inline and persists to disk.
+- **Filters on filaments page**: by type (PLA/PETG/ABS/…), by effect (matte/silk/sparkle/…), and by color family (HSL bucketing into 12 visible buckets — red/orange/yellow/green/cyan/blue/purple/pink/brown/black/gray/white). Only families present in current data show as filter buttons. Multicolor filaments match if any stop falls in the selected family.
+- **Batch "Fill missing AI"** button on filaments page: sequentially runs `/api/lookup-filament` for every record without an `ai` block. Live progress (`Filling AI… 2/5`), persists once at the end, counts failures separately so a single bad lookup doesn't abort the batch. Hidden when nothing is missing.
+- **Print + bed temp chips** on filament cards (Thermometer + Square icons with the AI temp ranges). Hidden when no AI data, so cards stay clean for un-looked-up entries.
+- **`Effect` enum gained `transparent`** (in addition to `translucent`) for fully see-through filaments.
+- **Architecture documentation** at `docs/architecture.md` covering process model, lifecycle, helper service, AI-lookup chain, persistence flow, color bucketing, multi-chat workflow, and file map.
 
 ### Changed
 - **Filament data model**: replaced per-spool `spool_state` with per-record `inventory: { sealed, open, in_use }`. Each record now describes one (brand, name, variant) — i.e. one SKU-equivalent — and physical spools of that SKU are counted, not duplicated as separate records.
 - `FilamentForm.vue`: state dropdown replaced with three count inputs + a spool-weight (g) field.
-- `FilamentCard.vue`: now shows `N spools (a sealed, b open, c in use)`.
+- `FilamentCard.vue`: now shows `N spools (a sealed, b open, c in use)`, plus print + bed temp chips when AI data is present.
+- `RatingStars.vue`: brighter unselected stroke, hover preview, scale-on-hover, optional readonly mode (used in detail header), explicit clear button. Addresses confusion where stars looked disabled.
+- `OrderImportReview.vue`: now handles accessories + consumables as well as filaments.
 
 ### Fixed
-- v0.1 known issue: closing the PWA `--app` window left `vite` running on port 5173 because only the helper self-terminated via the heartbeat watchdog. Now resolved via Chunk D (see Added).
+- v0.1 known issue: closing the PWA `--app` window left `vite` running on port 5173 because only the helper self-terminated via the heartbeat watchdog. Now resolved via Chunk D.
+- Detail-modal `Re-lookup` button used to update only a local ref and never write back to disk. Now pushes the result to the filaments store and triggers `save()`.
+- `vite.config.ts` was at one point reduced to the bare scaffold by a tooling glitch, breaking Tailwind, the helper plugin, and the PWA wiring. Rebuilt and merged with Chunk D's lifecycle hooks.
+
+### Known issues
+- **Per-supplier swatch resolvers stubbed.** `POST /lookup-swatch` always returns `{ hex: null, source: null, confidence: "none" }`. Bambu Filament Library + SUNLU + 123-3d.nl + RealFilament + Firecrawl fallback land in v0.3 (Chunk E).
+- **Helper `/import-order` endpoint not implemented.** PDF drop-zone calls `/api/import-order` but the helper currently 404s. Chunk F for v0.3.
+- **Bambu PLA Basic Green/Gray defaults assumed** — Chat C picked G6/D0; user should confirm against actual labels.
+- **Real Filament PETG Pink/Orange `product_url`** points to category page, not exact SKU. Chunk E swatch resolver will re-fetch.
+- **TPU for AMS color codes** are 5-digit MakerWorld codes (53101/53600/53500), not the 2-char SKU codes used elsewhere — Chunk E resolver needs to handle both formats.
+- **`claude` CLI must be on PATH and authenticated.** If `claude` isn't installed or the session expired, lookup buttons surface the error in the UI but don't auto-recover.
 
 ## [0.1.0] — 2026-05-08
 
