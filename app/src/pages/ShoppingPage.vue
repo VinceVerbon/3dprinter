@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, onBeforeUnmount } from 'vue'
 import { useShoppingStore } from '../stores/shopping'
 import type { ShoppingItem } from '../types'
-import { Plus, Trash2, Printer, Eraser } from 'lucide-vue-next'
+import { Plus, Trash2, Printer, Eraser, BookOpen } from 'lucide-vue-next'
+import CatalogPicker from '../components/CatalogPicker.vue'
 
 const store = useShoppingStore()
 const newLabel = ref('')
 const newQty = ref(1)
 const saving = ref(false)
 const message = ref<string | null>(null)
+const showPicker = ref(false)
 
 onMounted(() => store.load())
 
@@ -41,6 +43,21 @@ async function add() {
   await persist()
 }
 
+async function addFromCatalog(picked: { source_type: 'replacement_part' | 'consumable'; source_id: string; label: string; notes?: string }) {
+  const item: ShoppingItem = {
+    id: uuid(),
+    source_type: picked.source_type,
+    source_id: picked.source_id,
+    label: picked.label,
+    quantity: 1,
+    notes: picked.notes,
+    added_at: new Date().toISOString(),
+  }
+  store.add(item)
+  showPicker.value = false
+  await persist()
+}
+
 async function toggle(id: string) {
   store.toggleDone(id)
   await persist()
@@ -57,6 +74,12 @@ async function clearDone() {
 function printList() {
   window.print()
 }
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') showPicker.value = false
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
@@ -89,13 +112,22 @@ function printList() {
 
     <p v-if="message" class="text-xs text-slate-400 mb-2 print:hidden">{{ message }}</p>
 
+    <div class="flex gap-2 mb-2 print:hidden">
+      <button
+        @click="showPicker = true"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
+      >
+        <BookOpen :size="14" /> Add from catalog
+      </button>
+    </div>
+
     <form
       @submit.prevent="add"
       class="flex gap-2 mb-4 print:hidden"
     >
       <input
         v-model="newLabel"
-        placeholder="Add item (e.g. Magigoo PLA 250ml)"
+        placeholder="Add free-text item (e.g. zip ties)"
         class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm text-slate-100"
       />
       <input
@@ -114,7 +146,7 @@ function printList() {
     </form>
 
     <div v-if="store.items.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg print:hidden">
-      Empty list. Add items above.
+      Empty list. Add from catalog or type a free-text item above.
     </div>
 
     <ul v-else class="grid gap-1.5">
@@ -146,6 +178,12 @@ function printList() {
     <p class="text-xs text-slate-500 mt-4 print:hidden">
       Tip: open this on your phone via the same Wi-Fi at <code class="text-slate-300">http://&lt;your-pc-ip&gt;:5173/#/shopping</code>, or use Print → Save as PDF for an offline checklist.
     </p>
+
+    <CatalogPicker
+      v-if="showPicker"
+      @pick="addFromCatalog"
+      @close="showPicker = false"
+    />
   </section>
 </template>
 
