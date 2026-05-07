@@ -4,18 +4,31 @@ import type { Filament } from '../types'
 import SwatchPreview from './SwatchPreview.vue'
 import RatingStars from './RatingStars.vue'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
+import { useFilamentsStore } from '../stores/filaments'
 import { ref } from 'vue'
 import { X, ExternalLink, Pencil, Sparkles } from 'lucide-vue-next'
 
 const props = defineProps<{ filament: Filament }>()
 const emit = defineEmits<{ close: []; edit: [string] }>()
 
+const store = useFilamentsStore()
 const { lookup, loading, error } = useFilamentLookup()
 const ai = ref<Filament['ai'] | null>(props.filament.ai ?? null)
+const savedNote = ref<string | null>(null)
 
 async function refreshAi() {
-  const r = await lookup(props.filament.brand, props.filament.name, true)
-  if (r) ai.value = r
+  const r = await lookup(props.filament.brand, props.filament.name, !ai.value ? false : true)
+  if (r) {
+    ai.value = r
+    store.update(props.filament.id, { ai: r })
+    const res = await store.save()
+    savedNote.value = res.ok
+      ? 'Saved.'
+      : res.offlineFallback
+        ? 'Helper offline — saved to localStorage.'
+        : 'Save failed.'
+    setTimeout(() => (savedNote.value = null), 3000)
+  }
 }
 
 const totalSpools = computed(() =>
@@ -143,13 +156,16 @@ const tempRange = (r: [number, number] | null | undefined) =>
         <section>
           <div class="flex items-center justify-between mb-2">
             <h4 class="text-xs uppercase tracking-wide text-slate-500">P2S usage info</h4>
-            <button
-              @click="refreshAi"
-              :disabled="loading"
-              class="flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-violet-700/40 border border-violet-600/60 text-violet-100 hover:bg-violet-700/60 disabled:opacity-40"
-            >
-              <Sparkles :size="12" /> {{ loading ? 'Looking up…' : (ai ? 'Re-lookup' : 'Lookup AI') }}
-            </button>
+            <div class="flex items-center gap-2">
+              <span v-if="savedNote" class="text-[10px] text-emerald-400">{{ savedNote }}</span>
+              <button
+                @click="refreshAi"
+                :disabled="loading"
+                class="flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-violet-700/40 border border-violet-600/60 text-violet-100 hover:bg-violet-700/60 disabled:opacity-40"
+              >
+                <Sparkles :size="12" /> {{ loading ? 'Looking up…' : (ai ? 'Re-lookup' : 'Lookup AI') }}
+              </button>
+            </div>
           </div>
           <p v-if="error" class="text-xs text-red-400 mb-2">{{ error }}</p>
           <div v-if="ai" class="grid gap-2 text-xs">
