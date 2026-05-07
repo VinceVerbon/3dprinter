@@ -195,3 +195,57 @@ Each entry: `{ id, name, category, typical_unit, suggested_brands?, notes, sourc
 - Chunk C (Launcher) only needs `app/` and `helper/` to exist as directories; the helper service itself doesn't need to work yet — Chunk C can verify its own logic by checking that paths resolve correctly.
 
 When merging back: rebase onto `main` and resolve `crosslog.md` by appending each session's entries (chronological). The crosslog protocol explicitly allows appends.
+
+---
+
+## Chunk D — Wire Vite dev server into the heartbeat watchdog (v0.2)
+
+**Status (2026-05-08):** unclaimed. Best fit: Chat A (already owns the helper).
+
+**Scope:** Close the v0.1 known-issue. Currently when the user closes the PWA window the **helper** self-exits via the heartbeat watchdog, but the **Vite dev server** keeps running on port 5173. Make closing the PWA window kill the whole stack cleanly.
+
+**Allowed paths (only edit these):**
+- `helper/index.mjs` — extend the watchdog to also kill a tracked Vite PID on exit
+- `app/vite.config.ts` — `helperPlugin` already spawns the helper as a child of `npm run dev`; extend it to **send the helper its own (Vite's) PID via env or a startup POST** so the helper can kill it on watchdog trigger
+- `helper/README.md` — document the lifecycle change
+- `docs/release-notes/v0.2.0.md` — append a "Lifecycle" highlight when the time comes
+- `CHANGELOG.md` `[Unreleased]` — log the fix
+
+**DO NOT TOUCH:** anything under `app/src/**`, `data/**`, `scripts/**`, other docs.
+
+**Recommended approach** (chosen because the helper already has process control + a watchdog tick):
+
+1. **Vite plugin (`app/vite.config.ts`)** — when `helperPlugin` spawns the helper, pass `VITE_PID=${process.pid}` in the child env. The plugin already kills the helper on Vite shutdown, so no change needed to teardown — only the *forward* signal matters.
+
+2. **Helper (`helper/index.mjs`)** — read `process.env.VITE_PID` at startup. On watchdog trigger (`process.exit(0)` after 45 s no-heartbeat) and on SIGINT/SIGTERM, **first** try to terminate the Vite PID, **then** exit:
+
+   ```js
+   function killVite(reason) {
+     const pid = parseInt(process.env.VITE_PID || '', 10);
+     if (!pid) return;
+     try {
+       process.kill(pid, 'SIGTERM');
+       console.log(`[helper] sent SIGTERM to vite pid=${pid} (${reason})`);
+       // Windows note: SIGTERM on Windows is treated as SIGKILL by Node.
+     } catch (err) {
+       if (err.code !== 'ESRCH') console.error(`[helper] kill vite failed:`, err);
+     }
+   }
+   ```
+
+   Call it from the watchdog branch and the `shutdown(sig)` handler.
+
+3. **Edge cases to handle:**
+   - User runs `helper/index.mjs` directly (no parent Vite): `VITE_PID` is unset; `killVite` is a no-op. Existing behavior preserved.
+   - Helper restarts (e.g. crash + nodemon-style auto-restart, future): the PID env may go stale. Re-resolve via parent process if needed; for v0.2 just trust the env at startup.
+   - Vite spawns the helper with `stdio: 'inherit'` already (existing config) so the helper sees Vite's output streams; no change needed.
+
+**Acceptance criteria:**
+- `npm run dev` boots both processes; closing the Edge `--app` window stops heartbeats; within ~45 s **both** Vite and the helper are gone (`Get-Process node` returns nothing for them).
+- `node helper/index.mjs` standalone (no Vite parent) still self-cleans after 45 s without killing anything else.
+- Re-running `scripts/start.ps1` after the auto-cleanup boots a fresh stack with no stale port collisions on 5173 / 5174.
+- `helper/README.md` documents the new behavior in the Lifecycle section.
+
+**Estimated effort:** 30–45 min. Two files, ~30 LOC of changes, manual smoke test.
+
+**PR title:** `feat(chunk-d): vite dev-server killed alongside helper on heartbeat-watchdog exit`
