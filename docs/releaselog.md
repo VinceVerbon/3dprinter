@@ -4,4 +4,4 @@ Short bilingual index. One row per tagged release. Detailed per-version notes li
 
 | Version | Date / Datum | Summary (EN) | Samenvatting (NL) |
 |---------|--------------|--------------|-------------------|
-| _0.1.0_ | _pending_    | _Initial scaffold (docs + change/release trail + crosslog + worktree convention)_ | _Eerste opzet (docs + wijzigings-/releasespoor + crosslog + worktree-conventie)_ |
+| v0.1.0  | 2026-05-08   | Initial release: filament inventory with manual swatches, AI usage lookup via Claude OAuth, helper service with heartbeat watchdog, taskbar launcher | Eerste release: filamentinventaris met handmatige kleurstaal, AI-gebruiksinformatie via Claude OAuth, helperservice met heartbeat-bewaking, taakbalk-snelkoppeling |
