@@ -2,10 +2,15 @@
 import type { Filament } from '../types'
 import SwatchPreview from './SwatchPreview.vue'
 import RatingStars from './RatingStars.vue'
-import { Trash2, Pencil } from 'lucide-vue-next'
+import { Trash2, Pencil, Thermometer, Square } from 'lucide-vue-next'
 
 defineProps<{ filament: Filament }>()
 defineEmits<{ edit: [string]; remove: [string] }>()
+
+function range(r: [number, number] | null | undefined): string {
+  if (!r) return ''
+  return r[0] === r[1] ? `${r[0]}°` : `${r[0]}–${r[1]}°`
+}
 </script>
 
 <template>
@@ -24,6 +29,20 @@ defineEmits<{ edit: [string]; remove: [string] }>()
           </span>
         </span>
         <span v-if="filament.swatch.effects.length">{{ filament.swatch.effects.join(', ') }}</span>
+        <span
+          v-if="filament.ai?.print_temp_c"
+          class="inline-flex items-center gap-1"
+          :title="`Print temperature ${range(filament.ai.print_temp_c)}C`"
+        >
+          <Thermometer :size="12" class="text-orange-400" />{{ range(filament.ai.print_temp_c) }}
+        </span>
+        <span
+          v-if="filament.ai?.bed_temp_c"
+          class="inline-flex items-center gap-1"
+          :title="`Bed temperature ${range(filament.ai.bed_temp_c)}C`"
+        >
+          <Square :size="12" class="text-sky-400" />{{ range(filament.ai.bed_temp_c) }}
+        </span>
         <RatingStars :model-value="filament.rating" @update:model-value="() => {}" />
       </div>
       <p v-if="filament.notes" class="text-sm text-slate-300 mt-1 line-clamp-2">{{ filament.notes }}</p>
