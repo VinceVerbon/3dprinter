@@ -4,6 +4,10 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+### Fixed
+- **Save button on Add/Edit forms now actually saves.** `FilamentForm.vue` and `AccessoryForm.vue` were calling `structuredClone(form)` and `structuredClone(props.initial)`, but the form is a `reactive()` Vue Proxy whose nested objects (e.g. `swatch`, `inventory`) are also Proxies — Chromium's `structuredClone` rejects those with `DataCloneError: #<Object> could not be cloned`, so the submit handler threw before `emit('submit', …)` ever ran. The form has `@submit.prevent`, so the only user-visible symptom was "the Save button does nothing." Replaced with a JSON-roundtrip clone (`JSON.parse(JSON.stringify(v))`) since both records are pure JSON. Affects every Add/Edit path on the Filaments and Accessories pages, including the edit launched from the filament detail modal.
+- **Desktop launcher (`scripts/start.ps1`)** now actually opens the app on Windows. Four bugs were stacked: (1) `Get-Command npm` returned the `npm.ps1` shim, which `Start-Process` cannot launch — now resolves `npm.cmd` first; (2) `msedge.exe` is not on PATH on this machine (Edge installs under `Program Files (x86)`), so the Edge branch was skipped — added a path-probe fallback to the standard install locations for both Edge and Chrome; (3) the script was UTF-8 without BOM, so `powershell.exe` 5.1 read the em dashes as Windows-1252 and parse-failed silently in the hidden window — re-saved with UTF-8 BOM; (4) **root cause of the user-visible failure**: `app/vite.config.ts` had `server.host: 'localhost'`, which on Windows resolves to `::1` first, leaving Vite IPv6-only — so the `127.0.0.1:5173` health probe and `msedge --app=http://127.0.0.1:5173/` both got connection-refused. Pinned Vite to `127.0.0.1` to match the helper.
+
 ## [0.2.0] — 2026-05-08
 
 ### Added

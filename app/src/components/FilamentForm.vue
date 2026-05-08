@@ -15,9 +15,14 @@ function uuid(): string {
   return 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+// JSON roundtrip rather than structuredClone: structuredClone() rejects Vue's
+// reactive Proxy with DataCloneError. Filament data is pure JSON, so a stringify
+// roundtrip both unwraps the proxy and yields the plain object the parent expects.
+function cloneJson<T>(v: T): T { return JSON.parse(JSON.stringify(v)) }
+
 const form = reactive<Filament>(
   props.initial
-    ? structuredClone(props.initial)
+    ? cloneJson(props.initial)
     : {
         id: uuid(),
         brand: 'Bambu Lab',
@@ -53,7 +58,7 @@ function syncStops() {
 
 function onSubmit() {
   syncStops()
-  emit('submit', structuredClone(form))
+  emit('submit', cloneJson(form))
 }
 </script>
 

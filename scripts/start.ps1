@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Launcher for the 3dprinter app. Pin this to the taskbar.
 
@@ -58,8 +58,10 @@ try {
 # --- 3. Spawn dev server (which auto-spawns the helper via vite plugin) ---
 if (-not $viteUp) {
   Write-Host "[start] spawning npm run dev in $appDir"
-  $npmCmd = (Get-Command npm).Source
-  Start-Process -FilePath $npmCmd `
+  # Start-Process cannot launch .ps1 directly; prefer npm.cmd over the npm.ps1 shim.
+  $npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue)
+  if (-not $npmCmd) { $npmCmd = Get-Command npm }
+  Start-Process -FilePath $npmCmd.Source `
     -ArgumentList 'run','dev' `
     -WorkingDirectory $appDir `
     -WindowStyle Hidden `
@@ -91,13 +93,29 @@ if (-not $helperReady) { Write-Warning "[start] helper not responding after ${ma
 if (-not $viteReady) { Write-Warning "[start] vite dev server not responding after ${maxWait}s; opening anyway" }
 
 # --- 5. Launch the PWA in Edge app-mode (fallback to Chrome) ---
-$edge = Get-Command msedge.exe -ErrorAction SilentlyContinue
-$chrome = Get-Command chrome.exe -ErrorAction SilentlyContinue
-if ($edge) {
-  Start-Process -FilePath $edge.Source -ArgumentList '--app=http://127.0.0.1:5173/'
+function Resolve-Browser {
+  param([string]$Exe, [string[]]$Candidates)
+  $cmd = Get-Command $Exe -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  foreach ($p in $Candidates) { if (Test-Path $p) { return $p } }
+  return $null
 }
-elseif ($chrome) {
-  Start-Process -FilePath $chrome.Source -ArgumentList '--app=http://127.0.0.1:5173/'
+
+$edgePath = Resolve-Browser -Exe 'msedge.exe' -Candidates @(
+  "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+  "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+)
+$chromePath = Resolve-Browser -Exe 'chrome.exe' -Candidates @(
+  "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+  "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+  "$env:LocalAppData\Google\Chrome\Application\chrome.exe"
+)
+
+if ($edgePath) {
+  Start-Process -FilePath $edgePath -ArgumentList '--app=http://127.0.0.1:5173/'
+}
+elseif ($chromePath) {
+  Start-Process -FilePath $chromePath -ArgumentList '--app=http://127.0.0.1:5173/'
 }
 else {
   Write-Warning "[start] neither msedge.exe nor chrome.exe found — opening default browser"

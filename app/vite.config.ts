@@ -95,7 +95,11 @@ export default defineConfig({
   ],
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
   server: {
-    host: 'localhost',
+    // Bind explicitly to IPv4 loopback. On Windows, 'localhost' often resolves
+    // to ::1 first, leaving 127.0.0.1 unbound and breaking start.ps1's health
+    // probe and Edge --app=http://127.0.0.1:5173/. Keeping it on 127.0.0.1
+    // matches the helper's bind address.
+    host: '127.0.0.1',
     port: 5173,
     strictPort: true,
     proxy: {

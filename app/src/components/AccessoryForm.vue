@@ -16,9 +16,13 @@ function uuid(): string {
   return 'a_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+// JSON roundtrip rather than structuredClone: structuredClone() rejects Vue's
+// reactive Proxy with DataCloneError. Accessory data is pure JSON.
+function cloneJson<T>(v: T): T { return JSON.parse(JSON.stringify(v)) }
+
 const form = reactive<Accessory>(
   props.initial
-    ? structuredClone(props.initial)
+    ? cloneJson(props.initial)
     : {
         id: uuid(),
         brand: '',
@@ -34,7 +38,7 @@ const form = reactive<Accessory>(
 )
 
 function onSubmit() {
-  emit('submit', structuredClone(form))
+  emit('submit', cloneJson(form))
 }
 </script>
 
