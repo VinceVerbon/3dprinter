@@ -11,6 +11,7 @@ const emit = defineEmits<{
       source_id: string
       label: string
       notes?: string
+      unit_price_eur?: number
     },
   ]
   close: []
@@ -46,6 +47,7 @@ function pickPart(p: CatalogReplacementPart) {
     source_id: p.id,
     label: p.name + (p.sku ? ` (${p.sku})` : ''),
     notes: p.notes,
+    unit_price_eur: p.price_eur_estimate,
   })
 }
 function pickConsumable(c: CatalogConsumable) {

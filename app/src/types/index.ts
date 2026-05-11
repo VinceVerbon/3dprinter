@@ -87,6 +87,7 @@ export interface ShoppingItem {
   source_id?: string         // id of the source item (if not free_text)
   label: string              // human-readable, used in printable list
   quantity: number
+  unit_price_eur?: number    // snapshot at add-time; multiplied by quantity for line/total
   notes?: string
   added_at: string
   done?: boolean             // checked off in the printed list

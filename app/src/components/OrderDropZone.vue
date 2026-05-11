@@ -12,6 +12,9 @@ export type ImportedItem = {
   quantity: number
   unit_price_eur?: number
   total_eur?: number
+  hex?: string | null
+  stops?: string[] | null
+  effects?: string[]
 }
 export type ImportResult = {
   ok: boolean

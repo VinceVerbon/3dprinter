@@ -1,18 +1,43 @@
 <script setup lang="ts">
-import { onMounted, ref, onBeforeUnmount } from 'vue'
+import { onMounted, ref, onBeforeUnmount, computed } from 'vue'
 import { useShoppingStore } from '../stores/shopping'
+import { useCatalogStore } from '../stores/catalog'
 import type { ShoppingItem } from '../types'
 import { Plus, Trash2, Printer, Eraser, BookOpen } from 'lucide-vue-next'
 import CatalogPicker from '../components/CatalogPicker.vue'
 
 const store = useShoppingStore()
+const catalog = useCatalogStore()
 const newLabel = ref('')
 const newQty = ref(1)
 const saving = ref(false)
 const message = ref<string | null>(null)
 const showPicker = ref(false)
 
-onMounted(() => store.load())
+onMounted(async () => {
+  await Promise.all([store.load(), catalog.load()])
+  await backfillPricesFromCatalog()
+})
+
+async function backfillPricesFromCatalog() {
+  let changed = 0
+  for (const item of store.items) {
+    if (item.unit_price_eur != null) continue
+    if (item.source_type !== 'replacement_part' || !item.source_id) continue
+    const part = catalog.parts.find(p => p.id === item.source_id)
+    if (part?.price_eur_estimate != null) {
+      store.update(item.id, { unit_price_eur: part.price_eur_estimate })
+      changed++
+    }
+  }
+  if (changed > 0) {
+    const r = await store.save()
+    message.value = r.ok
+      ? `Backfilled prices on ${changed} item${changed === 1 ? '' : 's'} from catalog.`
+      : 'Backfill done locally; save failed.'
+    setTimeout(() => (message.value = null), 4000)
+  }
+}
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
@@ -43,13 +68,14 @@ async function add() {
   await persist()
 }
 
-async function addFromCatalog(picked: { source_type: 'replacement_part' | 'consumable'; source_id: string; label: string; notes?: string }) {
+async function addFromCatalog(picked: { source_type: 'replacement_part' | 'consumable'; source_id: string; label: string; notes?: string; unit_price_eur?: number }) {
   const item: ShoppingItem = {
     id: uuid(),
     source_type: picked.source_type,
     source_id: picked.source_id,
     label: picked.label,
     quantity: 1,
+    unit_price_eur: picked.unit_price_eur,
     notes: picked.notes,
     added_at: new Date().toISOString(),
   }
@@ -57,6 +83,24 @@ async function addFromCatalog(picked: { source_type: 'replacement_part' | 'consu
   showPicker.value = false
   await persist()
 }
+
+function lineTotal(item: ShoppingItem): number | null {
+  if (item.unit_price_eur == null) return null
+  return item.unit_price_eur * Math.max(1, item.quantity | 0)
+}
+function fmtEur(v: number): string {
+  return '€' + v.toFixed(2)
+}
+
+const openTotalPriced = computed(() =>
+  store.open.reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
+)
+const openUnpricedCount = computed(() =>
+  store.open.filter(i => i.unit_price_eur == null).length,
+)
+const doneTotalPriced = computed(() =>
+  store.done.reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
+)
 
 async function toggle(id: string) {
   store.toggleDone(id)
@@ -167,6 +211,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           {{ item.label }}
           <span v-if="item.notes" class="text-xs text-slate-500"> — {{ item.notes }}</span>
         </span>
+        <span class="text-xs tabular-nums whitespace-nowrap text-slate-300" :class="{ 'line-through text-slate-500': item.done }">
+          <template v-if="lineTotal(item) != null">{{ fmtEur(lineTotal(item)!) }}</template>
+          <span v-else class="text-slate-600">—</span>
+        </span>
         <button
           @click="remove(item.id)"
           class="p-1 text-slate-500 hover:text-red-400 print:hidden"
@@ -175,8 +223,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </li>
     </ul>
 
+    <footer
+      v-if="store.items.length > 0"
+      class="mt-3 px-3 py-2 border border-slate-800 rounded bg-slate-900/40 text-sm flex items-center justify-between gap-3"
+    >
+      <div class="text-slate-400">
+        <span class="text-slate-200 font-medium">Estimated total</span>
+        <span v-if="openUnpricedCount > 0" class="text-xs text-slate-500"> &middot; {{ openUnpricedCount }} item<template v-if="openUnpricedCount !== 1">s</template> without price not counted</span>
+      </div>
+      <div class="text-right tabular-nums">
+        <div class="text-base text-slate-100 font-semibold">{{ fmtEur(openTotalPriced) }}</div>
+        <div v-if="store.done.length > 0" class="text-xs text-slate-500">+ {{ fmtEur(doneTotalPriced) }} already checked off</div>
+      </div>
+    </footer>
+
     <p class="text-xs text-slate-500 mt-4 print:hidden">
-      Tip: open this on your phone via the same Wi-Fi at <code class="text-slate-300">http://&lt;your-pc-ip&gt;:5173/#/shopping</code>, or use Print → Save as PDF for an offline checklist.
+      Tip: open this on your phone via the same Wi-Fi at <code class="text-slate-300">http://&lt;your-pc-ip&gt;:5173/#/shopping</code>, or use Print → Save as PDF for an offline checklist. Prices are estimates snapshotted from the catalog at the moment you added each item.
     </p>
 
     <CatalogPicker

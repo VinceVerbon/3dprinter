@@ -142,5 +142,23 @@
     "suggested_brands": ["Generic"],
     "notes": "For camera lens cleaning (VOC buildup causes blurry remote view; clean every 6 months), applying IPA to tight spaces, and cleaning the purge chute area. Available at any Dutch drugstore or supermarket.",
     "source_url": "https://www.kruidvat.nl"
+  },
+  {
+    "id": "bambu-glue-stick-consumable",
+    "name": "Bambu Glue Stick — 1-pack",
+    "category": "adhesion",
+    "typical_unit": "1 stick (~20 g)",
+    "suggested_brands": ["Bambu Lab"],
+    "notes": "Bambu OEM PVA glue stick (SGL001). Water-soluble, formaldehyde-free. Use on Engineering Plate for ABS/PC/PA, or as release layer on Textured PEI for PETG. All-series compatible. Cheaper as a 4-pack at Bambu store. ~€4.00 per stick.",
+    "source_url": "https://eu.store.bambulab.com/products/glue-stick-for-build-plate"
+  },
+  {
+    "id": "bambu-liquid-glue-consumable",
+    "name": "Bambu Liquid Glue — 60 mL",
+    "category": "adhesion",
+    "typical_unit": "60 mL bottle",
+    "suggested_brands": ["Bambu Lab"],
+    "notes": "Bambu OEM liquid glue pen (LGL001). More uniform application than stick glue; water-cleanup. PLA/ABS/PETG/PET/ASA/TPU. ~100 full-plate applications per bottle. All-series compatible. ~€17.50 / bottle.",
+    "source_url": "https://eu.store.bambulab.com/products/liquid-glue-for-build-plate"
   }
 ]

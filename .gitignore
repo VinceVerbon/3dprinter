@@ -20,3 +20,6 @@ Thumbs.db
 
 # Worktrees (just in case anything ends up below the project root)
 .worktrees/
+
+# Node deps
+node_modules/

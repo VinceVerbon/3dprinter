@@ -51,7 +51,8 @@ All responses are JSON. CORS is set to `http://127.0.0.1:5173` (the Vite dev ser
 | `GET` | `/data/<file>.json` | — | the JSON, or `[]`/`{}` (for `ai-cache.json`) when missing |
 | `POST` | `/save-data` | `{ file, data }` | `{ ok: true }`; atomic write to `data/<file>.json` |
 | `POST` | `/lookup-filament` | `{ brand, name, force? }` | `{ ok, cached, result }` — see schema below |
-| `POST` | `/lookup-swatch` | `{ brand, name }` | **stub** for v0.1: `{ hex: null, source: null, confidence: "none" }` |
+| `POST` | `/lookup-swatch` | `{ brand, name, variant?, sku?, color_code?, product_url?, force? }` | `{ ok, cached, result: { hex, stops[], effects[], source, confidence, notes? } }` — Bambu-prioritised, multicolor-aware |
+| `POST` | `/import-order` | `multipart/form-data` with `pdf` file + optional `filename` field | `{ ok, vendor_guess, order_ref, order_date, items[], total_eur, raw_text_preview }` — see flow below |
 
 ### `/data/<file>.json` filename rules
 
@@ -103,6 +104,16 @@ Returned `result` shape:
 }
 ```
 
+### `/import-order` flow
+
+1. Parse the multipart upload with `busboy`. Cap at 10 MB (`fileSize` limit) — over → `413 { error: "too_large" }`. Missing `pdf` field → `400 { error: "no_pdf_field" }`.
+2. Stream the PDF to a fresh temp file under `os.tmpdir()` named `3dprinter-order-<ms>-<rand>.pdf`.
+3. Spawn `claude --print --output-format json --model claude-sonnet-4-6 --allowedTools Read --permission-mode bypassPermissions --no-session-persistence --append-system-prompt <framing>` with `cwd=tmpdir()`. The `cwd` choice matters: if Claude is spawned inside the project, it auto-discovers `CLAUDE.md` + `crosslog.md` and starts reasoning about the helper context, which can trip its prompt-injection guard and make it refuse a "scripted-looking" JSON request. Running from a neutral cwd keeps each extraction hermetic.
+4. The user-prompt asks Claude to use the Read tool on the absolute temp path (Read handles PDFs natively, including vision-OCR for image-based scans) and return JSON matching the contract in `docs/parallel-work.md` §326–356.
+5. Parse the wrapper (same path as `/lookup-filament` — `result` field / `content` string / `content[].text`), strip code fences, `JSON.parse` the inner payload, force-set `ok: true`, return.
+6. Unlink the temp PDF in `finally` (also on errors).
+7. 120 s timeout — `504 { error: "timeout" }` on miss.
+
 ## Smoke test (manual)
 
 ```powershell
@@ -130,6 +141,10 @@ try {
 Invoke-RestMethod -Method POST -Uri http://127.0.0.1:5174/lookup-filament `
   -Body '{"brand":"Bambu","name":"PLA Basic Black"}' `
   -ContentType 'application/json'
+
+# PDF order import (costs subscription quota — manual only)
+curl.exe -X POST -F "pdf=@receipt.pdf;type=application/pdf" -F "filename=receipt.pdf" `
+  http://127.0.0.1:5174/import-order
 ```
 
 ## Watchdog test

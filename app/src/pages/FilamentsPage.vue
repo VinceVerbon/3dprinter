@@ -2,16 +2,18 @@
 import { onMounted, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
+import { useSwatchLookup } from '../composables/useSwatchLookup'
 import FilamentCard from '../components/FilamentCard.vue'
 import FilamentForm from '../components/FilamentForm.vue'
 import FilamentDetail from '../components/FilamentDetail.vue'
 import OrderDropZone, { type ImportResult } from '../components/OrderDropZone.vue'
 import OrderImportReview from '../components/OrderImportReview.vue'
 import type { Filament, Effect, FilamentType } from '../types'
-import { Plus, FileUp, X, Sparkles } from 'lucide-vue-next'
+import { Plus, FileUp, X, Sparkles, Palette } from 'lucide-vue-next'
 
 const store = useFilamentsStore()
 const { lookup } = useFilamentLookup()
+const { lookup: swatchLookup } = useSwatchLookup()
 const showForm = ref(false)
 const editing = ref<Filament | undefined>(undefined)
 const detailing = ref<Filament | undefined>(undefined)
@@ -24,6 +26,52 @@ const importResult = ref<ImportResult | null>(null)
 const batchRunning = ref(false)
 const batchProgress = ref<{ done: number; total: number; failed: number } | null>(null)
 const missingAi = computed(() => store.items.filter(f => !f.ai))
+
+// Backfill grey swatches — selection criteria from docs/chunk-e-swatch-resolver.md.
+const greySwatchTargets = computed(() => store.items.filter(f =>
+  f.swatch.hex === '#888888'
+  && f.swatch.stops.length === 1
+  && f.swatch.stops[0] === '#888888'
+  && f.swatch.source === 'manual',
+))
+const swatchBatchRunning = ref(false)
+const swatchBatchProgress = ref<{ done: number; total: number; failed: number } | null>(null)
+async function refreshGreySwatches() {
+  if (swatchBatchRunning.value) return
+  const targets = greySwatchTargets.value.slice()
+  if (targets.length === 0) return
+  swatchBatchRunning.value = true
+  swatchBatchProgress.value = { done: 0, total: targets.length, failed: 0 }
+  for (const f of targets) {
+    const r = await swatchLookup({
+      brand: f.brand,
+      name: f.name,
+      variant: f.variant,
+      sku: f.sku,
+      product_url: f.product_url,
+    })
+    if (r && r.hex) {
+      store.update(f.id, {
+        swatch: {
+          hex: r.hex,
+          stops: r.stops.length > 0 ? r.stops : [r.hex],
+          effects: r.effects,
+          source: 'ai',
+        },
+      } as Partial<Filament>)
+    } else {
+      swatchBatchProgress.value.failed += 1
+    }
+    swatchBatchProgress.value.done += 1
+  }
+  const res = await store.save()
+  swatchBatchRunning.value = false
+  const failed = swatchBatchProgress.value.failed
+  message.value = res.ok
+    ? `Swatches resolved — ${swatchBatchProgress.value.done - failed} filled${failed ? `, ${failed} failed` : ''}.`
+    : (res.offlineFallback ? 'Helper offline — saved to localStorage.' : 'Save failed.')
+  setTimeout(() => { message.value = null; swatchBatchProgress.value = null }, 5000)
+}
 async function lookupAllMissing() {
   if (batchRunning.value) return
   const targets = missingAi.value.slice()
@@ -56,7 +104,7 @@ const filterColor = ref<string>('')   // color family key, see COLOR_FAMILIES be
 onMounted(() => store.load())
 
 // --- Color families: map a hex to one of these buckets via HSL ---
-type ColorFamily = 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink' | 'black' | 'white' | 'gray' | 'brown'
+type ColorFamily = 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink' | 'black' | 'white' | 'gray' | 'brown' | 'multicolor'
 const COLOR_FAMILIES: { key: ColorFamily; label: string; sample: string }[] = [
   { key: 'red',    label: 'Red',    sample: '#dc2626' },
   { key: 'orange', label: 'Orange', sample: '#ea580c' },
@@ -70,7 +118,17 @@ const COLOR_FAMILIES: { key: ColorFamily; label: string; sample: string }[] = [
   { key: 'black',  label: 'Black',  sample: '#0f172a' },
   { key: 'gray',   label: 'Gray',   sample: '#64748b' },
   { key: 'white',  label: 'White',  sample: '#f1f5f9' },
+  { key: 'multicolor', label: 'Multicolor', sample: 'conic-gradient(#dc2626,#ea580c,#eab308,#16a34a,#0891b2,#2563eb,#7c3aed,#db2777,#dc2626)' },
 ]
+
+function isMulticolor(f: Filament): boolean {
+  if (f.swatch.effects.includes('multicolor')) return true
+  if (f.swatch.stops.length > 1) {
+    const distinct = new Set(f.swatch.stops.map(h => h.toLowerCase()))
+    return distinct.size > 1
+  }
+  return false
+}
 
 function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
@@ -115,6 +173,7 @@ function colorFamily(hex: string): ColorFamily {
 
 function filamentMatchesColor(f: Filament, family: string): boolean {
   if (!family) return true
+  if (family === 'multicolor') return isMulticolor(f)
   return f.swatch.stops.some(h => colorFamily(h) === family) || colorFamily(f.swatch.hex) === family
 }
 
@@ -140,10 +199,13 @@ const availableEffects = computed<Effect[]>(() => {
 })
 const availableColors = computed(() => {
   const set = new Set<ColorFamily>()
+  let anyMulti = false
   for (const f of store.items) {
+    if (isMulticolor(f)) { anyMulti = true; continue }
     set.add(colorFamily(f.swatch.hex))
     for (const h of f.swatch.stops) set.add(colorFamily(h))
   }
+  if (anyMulti) set.add('multicolor')
   return COLOR_FAMILIES.filter(c => set.has(c.key))
 })
 
@@ -217,6 +279,21 @@ function onImportDone() {
           </template>
         </button>
         <button
+          v-if="greySwatchTargets.length > 0 || swatchBatchRunning"
+          @click="refreshGreySwatches"
+          :disabled="swatchBatchRunning"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-fuchsia-600/60 bg-fuchsia-700/30 text-fuchsia-100 hover:bg-fuchsia-700/50 disabled:opacity-60 disabled:cursor-not-allowed"
+          :title="`Resolve real hex colours for ${greySwatchTargets.length} filament${greySwatchTargets.length === 1 ? '' : 's'} currently stuck on the grey placeholder`"
+        >
+          <Palette :size="16" />
+          <template v-if="swatchBatchRunning && swatchBatchProgress">
+            Resolving swatches… {{ swatchBatchProgress.done }}/{{ swatchBatchProgress.total }}
+          </template>
+          <template v-else>
+            Refresh swatches ({{ greySwatchTargets.length }})
+          </template>
+        </button>
+        <button
           @click="showDropZone = true"
           class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
           title="Drop a PDF order receipt to bulk-add filaments"
@@ -283,7 +360,7 @@ function onImportDone() {
         >
           <span
             class="inline-block w-3.5 h-3.5 rounded-full border border-slate-700"
-            :style="{ backgroundColor: c.sample }"
+            :style="c.key === 'multicolor' ? { background: c.sample } : { backgroundColor: c.sample }"
           ></span>
           {{ c.label }}
         </button>

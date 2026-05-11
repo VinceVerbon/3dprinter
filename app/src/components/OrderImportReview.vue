@@ -77,10 +77,50 @@ const skippedCount = computed(() => rows.value.filter((r, i) => r.enabled && pro
 const saving = ref(false)
 const message = ref<string | null>(null)
 
+const newFilamentIds: { id: string; item: ImportedItem }[] = []
+
+async function resolveSwatchesAsync(): Promise<number> {
+  if (newFilamentIds.length === 0) return 0
+  let resolved = 0
+  await Promise.all(newFilamentIds.map(async ({ id, item }) => {
+    try {
+      const r = await fetch('/api/lookup-swatch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          brand: item.brand,
+          name: item.name,
+          variant: item.variant,
+          sku: item.sku,
+        }),
+      })
+      if (!r.ok) return
+      const json = await r.json() as {
+        ok?: boolean
+        result?: { hex?: string; stops?: string[]; effects?: string[]; source?: string; confidence?: string }
+      }
+      if (!json.ok || !json.result || !json.result.hex) return
+      const swatch = {
+        hex: json.result.hex,
+        stops: json.result.stops?.length ? json.result.stops : [json.result.hex],
+        effects: ((json.result.effects ?? []).filter(e => ['matte','silk','sparkle','marble','metallic','glow','multicolor','translucent','transparent'].includes(e)) as Filament['swatch']['effects']),
+        source: 'ai' as const,
+      }
+      filaments.update(id, { swatch } as Partial<Filament>)
+      resolved++
+    } catch {
+      /* helper offline or claude failed — keep Tier 1 hint */
+    }
+  }))
+  if (resolved > 0) await filaments.save()
+  return resolved
+}
+
 async function apply() {
   saving.value = true
   let touchedFilaments = false
   let touchedAccessories = false
+  newFilamentIds.length = 0
   for (let i = 0; i < props.result.items.length; i++) {
     const item = props.result.items[i]
     const row = rows.value[i]
@@ -96,14 +136,24 @@ async function apply() {
           } as Partial<Filament>)
         }
       } else {
+        const hexHint = item.hex ?? null
+        const stopsHint = item.stops && item.stops.length > 0 ? item.stops : (hexHint ? [hexHint] : null)
+        const newId = uuid('f')
         const f: Filament = {
-          id: uuid('f'),
+          id: newId,
           brand: item.brand,
           name: item.name,
           variant: item.variant,
           sku: item.sku,
           ean: item.ean,
-          swatch: { hex: '#888888', stops: ['#888888'], effects: [], source: 'manual' },
+          swatch: hexHint
+            ? {
+                hex: hexHint,
+                stops: stopsHint ?? [hexHint],
+                effects: ((item.effects ?? []).filter(e => ['matte','silk','sparkle','marble','metallic','glow','multicolor','translucent','transparent'].includes(e)) as Filament['swatch']['effects']),
+                source: 'ai',
+              }
+            : { hex: '#888888', stops: ['#888888'], effects: [], source: 'manual' },
           inventory: { sealed: row.quantity, open: 0, in_use: 0 },
           spool_grams_total: 1000,
           purchased: {
@@ -115,6 +165,7 @@ async function apply() {
           added_at: new Date().toISOString(),
         } as Filament
         filaments.add(f)
+        newFilamentIds.push({ id: newId, item })
       }
     } else if (item.kind === 'accessory' || item.kind === 'consumable') {
       touchedAccessories = true
@@ -148,7 +199,12 @@ async function apply() {
   const allOk = results.every(r => r.ok)
   const anyOffline = results.some(r => !r.ok && r.offlineFallback)
   message.value = allOk ? 'Imported.' : (anyOffline ? 'Helper offline — saved to localStorage.' : 'Save failed (partial).')
-  setTimeout(() => emit('done'), 800)
+  if (newFilamentIds.length > 0) {
+    message.value = `Imported. Resolving swatches… (0/${newFilamentIds.length})`
+    const resolved = await resolveSwatchesAsync()
+    message.value = `Imported. Swatches resolved: ${resolved}/${newFilamentIds.length}.`
+  }
+  setTimeout(() => emit('done'), 1200)
 }
 </script>
 
