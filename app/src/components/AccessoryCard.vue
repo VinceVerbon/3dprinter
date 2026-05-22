@@ -21,7 +21,7 @@ defineEmits<{ edit: [string]; remove: [string] }>()
         <span class="uppercase tracking-wide">{{ accessory.category.replace('_', ' ') }}</span>
         <span v-if="accessory.in_stock != null">{{ accessory.in_stock }} in stock</span>
         <span v-if="accessory.sku">SKU {{ accessory.sku }}</span>
-        <RatingStars :model-value="accessory.rating" @update:model-value="() => {}" />
+        <RatingStars :model-value="accessory.rating" readonly :size="14" />
       </div>
       <p v-if="accessory.notes" class="text-sm text-slate-300 mt-1 line-clamp-2">{{ accessory.notes }}</p>
     </div>

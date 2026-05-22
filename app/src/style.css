@@ -1,4 +1,35 @@
 @import "tailwindcss";
+/* Plus Jakarta Sans — Typold-bold lookalike for filament labels. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+/* ============ Label printing ============ */
+/* Decadry 105×70mm 8-up on A4. When the user prints the LabelsPage, only the
+   .print-root element is shown and gets laid out edge-to-edge on the page.
+   Everything else (app chrome, navigation, on-screen controls) is hidden. */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  /* Strip the layout padding the app wraps the routed view in (App.vue
+     <main class="p-6">) — otherwise that 24px pushes the sheet past 297mm
+     and Chrome emits a phantom 2nd blank page. */
+  #app, main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .print-hide { display: none !important; }
+  .print-root {
+    display: block;
+    width: 210mm;
+  }
+}
 
 :root {
   color-scheme: light dark;

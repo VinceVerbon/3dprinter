@@ -157,6 +157,226 @@ function runClaude(prompt, { extraArgs = [], timeoutMs = 90_000, cwd } = {}) {
   });
 }
 
+// ---------------- Headless PDF rendering ----------------
+// Drives `msedge --headless --print-to-pdf` against the running Vite dev server
+// (or the production build) so the user gets a PDF that bypasses the browser
+// print dialog entirely. The PDF rendering honors the @page rule (margin: 0)
+// and so the labels never collide with default browser dialog margins.
+const EDGE_CANDIDATES = [
+  process.env.EDGE_PATH,
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+].filter(Boolean);
+
+import { existsSync } from 'node:fs';
+import { readFile as fsReadFile } from 'node:fs/promises';
+
+function resolveBrowser() {
+  for (const p of EDGE_CANDIDATES) {
+    if (existsSync(p)) return p;
+  }
+  throw new Error('No Edge/Chrome binary found. Set EDGE_PATH env var.');
+}
+
+async function renderLabelsPdf({ ids, startPosition, topMarginMm, formatId, overrides }) {
+  const browser = resolveBrowser();
+  const idsParam = encodeURIComponent(ids.join(','));
+  const appOrigin = process.env.APP_ORIGIN || 'http://127.0.0.1:5173';
+  const params = new URLSearchParams();
+  params.set('ids', ids.join(','));
+  params.set('startPosition', String(startPosition));
+  if (formatId) params.set('formatId', formatId);
+  if (overrides && Object.keys(overrides).length > 0) {
+    const json = JSON.stringify(overrides);
+    const b64 = Buffer.from(json, 'utf8').toString('base64')
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    params.set('fmt', b64);
+  }
+  // Legacy alias — kept so an older frontend bundle still gets the top-margin
+  // hint until the user refreshes to pick up the new query-param wiring.
+  if (typeof topMarginMm === 'number') params.set('topMargin', String(topMarginMm));
+  const url = `${appOrigin}/#/labels?${params.toString().replace(/&/g, '&')}`;
+  void idsParam; // legacy local, intentionally unused now
+  // Use a project-local temp dir — Edge on Windows sometimes silently fails
+  // when writing the PDF to %LOCALAPPDATA%\Temp (the OS tmpdir).
+  const projectTmp = path.join(PROJECT_ROOT, '.tmp');
+  const tmpUserDir = path.join(projectTmp, `edge-hl-${Date.now()}-${randomBytes(4).toString('hex')}`);
+  const pdfPath = path.join(projectTmp, `labels-${Date.now()}-${randomBytes(6).toString('hex')}.pdf`);
+  await mkdir(tmpUserDir, { recursive: true });
+  // Generous virtual-time budget so Vue + Pinia + the brand-logo fetch all settle.
+  const args = [
+    '--headless',
+    '--disable-gpu',
+    `--user-data-dir=${tmpUserDir}`,
+    '--no-margins',
+    '--no-pdf-header-footer',
+    '--virtual-time-budget=15000',
+    `--print-to-pdf=${pdfPath}`,
+    url,
+  ];
+  await new Promise((resolve, reject) => {
+    const child = spawn(browser, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL'); } catch { /* noop */ }
+      reject(new Error('headless edge timed out'));
+    }, 60_000);
+    child.on('error', (err) => { clearTimeout(timer); reject(err); });
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`edge exit ${code}: ${stderr.slice(0, 400)}`));
+    });
+  });
+  // Edge --headless exits before its renderer subprocess finishes writing the
+  // PDF. Poll up to 30s for the file. Tested wait time: ~13s typical, up to
+  // ~22s under cold cache + many filaments.
+  let attempts = 0;
+  while (!existsSync(pdfPath) && attempts < 120) {
+    await new Promise((r) => setTimeout(r, 250));
+    attempts += 1;
+  }
+  if (!existsSync(pdfPath)) {
+    throw new Error(`edge headless wrote no PDF within 30s — increase virtual-time-budget or check ${tmpUserDir} permissions`);
+  }
+  const buf = await fsReadFile(pdfPath);
+  // Best-effort cleanup; ignore errors.
+  try { await unlink(pdfPath); } catch { /* noop */ }
+  return buf;
+}
+// --------------------------------------------------------
+
+// ---------------- Brand-logo resolution ----------------
+// Map known brand names → likely domain. Falls back to a slug.tld guess.
+const BRAND_DOMAIN_HINTS = {
+  'bambu lab': 'bambulab.com',
+  'bambulab': 'bambulab.com',
+  // Real Filament's own brand site first; 123-3d.nl is only the distributor.
+  'real filament': 'real-filament.com',
+  'realfilament': 'real-filament.com',
+  '123-3d': '123-3d.nl',
+  'sunlu': 'sunlu.com',
+  'esun': 'esun3d.com',
+  'polymaker': 'polymaker.com',
+  'prusament': 'prusa3d.com',
+  'overture': 'overture3d.com',
+  'creality': 'creality.com',
+  'elegoo': 'elegoo.com',
+  'anycubic': 'anycubic.com',
+  'hatchbox': 'hatchbox3d.com',
+};
+
+function guessDomainsForBrand(brand) {
+  const key = brand.trim().toLowerCase();
+  const out = [];
+  if (BRAND_DOMAIN_HINTS[key]) out.push(BRAND_DOMAIN_HINTS[key]);
+  // Slug guesses: e.g. "Acme Inc" → "acmeinc.com", "acme-inc.com"
+  const slug = key.replace(/[^a-z0-9]+/g, '');
+  if (slug) out.push(`${slug}.com`);
+  const dashed = key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (dashed && dashed !== slug) out.push(`${dashed}.com`);
+  return out;
+}
+
+function bufferToDataUri(buf, mime) {
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+// Shell out to curl so we get `-k` (accept expired/self-signed certs) without
+// disabling Node's TLS verification globally. Real Filament's website
+// (real-filament.com) has an expired LE cert at time of writing — Node's
+// undici-backed `fetch` refuses to connect; curl with `-k` does.
+async function fetchBuffer(url, { timeoutMs = 10_000 } = {}) {
+  return new Promise((resolve) => {
+    // -L follow redirects, -k insecure, -A real UA so picky sites accept us,
+    // -o - dump body to stdout, -w '%{content_type}\n' so we can read mime
+    // (curl prints the body to stdout, then \n + mime).
+    // Easier: read body via stdout, content-type via -D-/-w. Let's use stdout
+    // for body and parse the response headers via --write-out.
+    const args = ['-sL', '-k', '-A', 'Mozilla/5.0 3dprinter-helper/0.3',
+      '--max-time', String(Math.ceil(timeoutMs / 1000)),
+      '-w', '\\n__MIME__%{content_type}\\n__CODE__%{http_code}\\n', url];
+    const child = spawn('curl', args);
+    const chunks = [];
+    const stderr = [];
+    child.stdout.on('data', (d) => chunks.push(d));
+    child.stderr.on('data', (d) => stderr.push(d));
+    child.on('error', () => resolve(null));
+    child.on('exit', () => {
+      const buf = Buffer.concat(chunks);
+      // Find the curl --write-out trailer we appended.
+      const text = buf.toString('binary');
+      const mimeIdx = text.lastIndexOf('\n__MIME__');
+      const codeIdx = text.lastIndexOf('\n__CODE__');
+      if (mimeIdx < 0 || codeIdx < 0) return resolve(null);
+      const mime = text.slice(mimeIdx + '\n__MIME__'.length, codeIdx).trim();
+      const code = parseInt(text.slice(codeIdx + '\n__CODE__'.length).trim(), 10);
+      if (code < 200 || code >= 400) return resolve(null);
+      const body = Buffer.from(text.slice(0, mimeIdx), 'binary');
+      resolve({ buf: body, contentType: (mime || 'application/octet-stream').split(';')[0].trim() });
+    });
+  });
+}
+
+async function tryClearbit(domain) {
+  // Clearbit Logo API: returns a PNG (or 404). Free, no key.
+  const r = await fetchBuffer(`https://logo.clearbit.com/${domain}?size=256`);
+  if (!r || r.buf.length < 200) return null;
+  // Heuristic: clearbit serves PNGs; trust content-type if present
+  const mime = r.contentType.startsWith('image/') ? r.contentType : 'image/png';
+  return { dataUri: bufferToDataUri(r.buf, mime), source: 'clearbit' };
+}
+
+async function tryAppleTouchIcon(domain) {
+  // First try the well-known fixed paths.
+  const fixedCandidates = [
+    `https://${domain}/apple-touch-icon.png`,
+    `https://${domain}/apple-touch-icon-precomposed.png`,
+    `https://${domain}/apple-icon-180x180.png`,
+    `https://${domain}/apple-icon-152x152.png`,
+    `https://${domain}/apple-icon-144x144.png`,
+    `https://${domain}/favicon-192x192.png`,
+    `https://${domain}/favicon-128x128.png`,
+    `https://${domain}/favicon.ico`,
+  ];
+  for (const url of fixedCandidates) {
+    const r = await fetchBuffer(url, { timeoutMs: 6_000 });
+    if (r && r.contentType.startsWith('image/') && r.buf.length >= 200) {
+      return { dataUri: bufferToDataUri(r.buf, r.contentType), source: 'apple-touch-icon' };
+    }
+  }
+  // Fall through: parse the root HTML for <link rel="apple-touch-icon|icon"> and
+  // try those discovered paths. Many sites use non-standard locations.
+  const html = await fetchBuffer(`https://${domain}/`, { timeoutMs: 8_000 });
+  if (!html) return null;
+  const htmlStr = html.buf.toString('utf8');
+  const linkRe = /<link[^>]+rel=["'](?:apple-touch-icon(?:-precomposed)?|icon|shortcut icon)["'][^>]*>/gi;
+  const hrefRe = /href=["']([^"']+)["']/i;
+  const sizesRe = /sizes=["'](\d+)x\d+["']/i;
+  const found = [];
+  for (const m of htmlStr.matchAll(linkRe)) {
+    const hm = hrefRe.exec(m[0]);
+    if (!hm) continue;
+    const sm = sizesRe.exec(m[0]);
+    const size = sm ? parseInt(sm[1], 10) : 0;
+    found.push({ href: hm[1], size });
+  }
+  // Sort largest first so the print logo is high-res.
+  found.sort((a, b) => b.size - a.size);
+  for (const { href } of found) {
+    const abs = href.startsWith('http') ? href : (href.startsWith('//') ? `https:${href}` : `https://${domain}${href.startsWith('/') ? '' : '/'}${href}`);
+    const r = await fetchBuffer(abs, { timeoutMs: 6_000 });
+    if (r && r.contentType.startsWith('image/') && r.buf.length >= 200) {
+      return { dataUri: bufferToDataUri(r.buf, r.contentType), source: 'apple-touch-icon' };
+    }
+  }
+  return null;
+}
+// -------------------------------------------------------
+
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 // Stream a multipart/form-data request to a temp file. Returns
@@ -577,6 +797,113 @@ const server = createServer(async (req, res) => {
       } finally {
         await cleanup();
       }
+    }
+
+    if (req.method === 'POST' && p === '/render-labels-pdf') {
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const { ids, startPosition, topMarginMm, formatId, overrides } = body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return send(res, 400, { ok: false, error: 'ids[] required' });
+      }
+      // Whitelist ids (uuid-like) to avoid command-line injection.
+      const cleanIds = ids
+        .filter((x) => typeof x === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(x))
+        .slice(0, 500);
+      if (cleanIds.length === 0) return send(res, 400, { ok: false, error: 'no valid ids' });
+      // startPosition: clamp to a generous upper bound — frontend handles the real
+      // per-format clamp; helper is only guarding against absurd values.
+      const startPos = Number.isFinite(startPosition) && startPosition >= 1 && startPosition <= 200 ? Math.floor(startPosition) : 1;
+      const topMargin = Number.isFinite(topMarginMm) && topMarginMm >= 0 && topMarginMm <= 50 ? Number(topMarginMm) : undefined;
+      const cleanFormatId = typeof formatId === 'string' && /^[a-z0-9-]{1,64}$/.test(formatId) ? formatId : undefined;
+      const cleanOverrides = {};
+      if (overrides && typeof overrides === 'object' && !Array.isArray(overrides)) {
+        const ALLOWED = ['paperW','paperH','cols','rows','labelW','labelH','marginTop','marginBottom','marginLeft','marginRight','gapH','gapV','cornerRadius'];
+        for (const k of ALLOWED) {
+          const v = overrides[k];
+          if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000) {
+            cleanOverrides[k] = v;
+          }
+        }
+      }
+      try {
+        const pdfBuf = await renderLabelsPdf({
+          ids: cleanIds,
+          startPosition: startPos,
+          topMarginMm: topMargin,
+          formatId: cleanFormatId,
+          overrides: cleanOverrides,
+        });
+        setCors(res);
+        res.statusCode = 200;
+        res.setHeader('content-type', 'application/pdf');
+        res.setHeader('content-disposition', 'attachment; filename="filament-labels.pdf"');
+        res.setHeader('content-length', String(pdfBuf.length));
+        return res.end(pdfBuf);
+      } catch (err) {
+        console.error('render-labels-pdf error:', err);
+        return send(res, 500, { ok: false, error: err.message || 'render failed' });
+      }
+    }
+
+    if (req.method === 'POST' && p === '/fetch-url-as-data-uri') {
+      // Pre-fetch a URL the user pasted and convert to data-URI server-side.
+      // Sidesteps cross-origin / CORS and SVG 404 issues at render time.
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const { url } = body;
+      if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+        return send(res, 400, { ok: false, error: 'http(s) url required' });
+      }
+      const r = await fetchBuffer(url, { timeoutMs: 10_000 });
+      if (!r || !r.contentType.startsWith('image/') || r.buf.length < 50) {
+        return send(res, 502, { ok: false, error: 'url did not return an image' });
+      }
+      return send(res, 200, {
+        ok: true,
+        kind: 'data-uri',
+        value: bufferToDataUri(r.buf, r.contentType),
+        source: 'manual-url',
+      });
+    }
+
+    if (req.method === 'POST' && p === '/fetch-logo') {
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const { brand, product_url, domain: hintDomain } = body;
+      if (typeof brand !== 'string' || !brand.trim()) {
+        return send(res, 400, { ok: false, error: 'brand required' });
+      }
+      const candidates = [];
+      if (typeof hintDomain === 'string' && hintDomain.trim()) candidates.push(hintDomain.trim());
+      if (typeof product_url === 'string' && product_url.trim()) {
+        try { candidates.push(new URL(product_url).hostname.replace(/^www\./, '')); } catch { /* ignore */ }
+      }
+      candidates.push(...guessDomainsForBrand(brand));
+      // dedupe preserving order
+      const seen = new Set();
+      const tryList = candidates.filter((d) => d && !seen.has(d) && seen.add(d));
+      let resolved = null;
+      const attempts = [];
+      for (const dom of tryList) {
+        const fromClearbit = await tryClearbit(dom);
+        attempts.push({ domain: dom, source: 'clearbit', ok: !!fromClearbit });
+        if (fromClearbit) { resolved = { ...fromClearbit, domain: dom }; break; }
+        const fromFavicon = await tryAppleTouchIcon(dom);
+        attempts.push({ domain: dom, source: 'apple-touch-icon', ok: !!fromFavicon });
+        if (fromFavicon) { resolved = { ...fromFavicon, domain: dom }; break; }
+      }
+      if (resolved) {
+        return send(res, 200, {
+          ok: true,
+          kind: 'data-uri',
+          value: resolved.dataUri,
+          domain: resolved.domain,
+          source: resolved.source,
+          attempts,
+        });
+      }
+      return send(res, 200, { ok: false, kind: 'missing', attempts });
     }
 
     if (req.method === 'POST' && p === '/lookup-swatch') {

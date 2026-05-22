@@ -43,7 +43,7 @@ function range(r: [number, number] | null | undefined): string {
         >
           <Square :size="12" class="text-sky-400" />{{ range(filament.ai.bed_temp_c) }}
         </span>
-        <RatingStars :model-value="filament.rating" @update:model-value="() => {}" />
+        <RatingStars :model-value="filament.rating" readonly :size="14" />
       </div>
       <p v-if="filament.notes" class="text-sm text-slate-300 mt-1 line-clamp-2">{{ filament.notes }}</p>
     </div>

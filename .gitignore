@@ -23,3 +23,6 @@ Thumbs.db
 
 # Node deps
 node_modules/
+
+# Helper PDF render scratch (Edge headless tmp + last-rendered PDF)
+.tmp/

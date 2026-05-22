@@ -18,16 +18,18 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100">
-    <header class="border-b border-slate-800 px-6 py-4 flex items-baseline gap-6">
+    <header class="border-b border-slate-800 px-6 py-4 flex items-center gap-4 print-hide">
+      <img src="/app-icon-192.png" alt="Haspel" class="w-10 h-10 rounded-md ring-1 ring-slate-700 flex-none" />
       <div>
-        <h1 class="text-xl font-semibold">3D Printer Supplies</h1>
-        <p class="text-sm text-slate-400">Bambu Lab P2S Combo &middot; AMS 2 Pro</p>
+        <h1 class="text-xl font-semibold leading-tight">Haspel</h1>
+        <p class="text-sm text-slate-400">3D printing supplies tracker</p>
       </div>
-      <nav class="flex gap-4 text-sm">
+      <nav class="flex gap-4 text-sm ml-2">
         <RouterLink to="/filaments" class="hover:text-sky-400">Filaments</RouterLink>
         <RouterLink to="/accessories" class="hover:text-sky-400">Accessories</RouterLink>
         <RouterLink to="/shopping" class="hover:text-sky-400">Shopping</RouterLink>
         <RouterLink to="/empty-spools" class="hover:text-sky-400">Empty spools</RouterLink>
+        <RouterLink to="/labels" class="hover:text-sky-400">Labels</RouterLink>
         <RouterLink to="/settings" class="hover:text-sky-400">Settings</RouterLink>
       </nav>
     </header>
