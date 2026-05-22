@@ -1,0 +1,13 @@
+[
+  {
+    "id": "demo-acc-0001-nozzle-04",
+    "brand": "Bambu Lab",
+    "name": "Hardened Steel Nozzle 0.4 mm",
+    "category": "nozzle",
+    "sub_category": "",
+    "sku": "",
+    "notes": "Demo entry — wears slower than brass on abrasive filaments (CF/GF blends, glow-in-the-dark). Default 0.4 mm is a good all-purpose size.",
+    "in_stock": 1,
+    "added_at": "2026-01-01T00:00:00.000Z"
+  }
+]

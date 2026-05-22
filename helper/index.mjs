@@ -5,10 +5,10 @@
 // Contract: docs/parallel-work.md §"Chunk A — Helper service".
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, mkdir, unlink } from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
+import { readFile, writeFile, rename, mkdir, unlink, stat, copyFile, utimes } from 'node:fs/promises';
+import { createWriteStream, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,47 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = process.env.PROJECT_ROOT
   ? path.resolve(process.env.PROJECT_ROOT)
   : path.resolve(__dirname, '..');
-const DATA_DIR = path.join(PROJECT_ROOT, 'data');
+// CATALOG_DIR holds the read-only seed catalog (shipped with the app). Kept
+// rooted at <repo>/data/ rather than <repo>/data/catalog/ so the existing
+// FILE_RE_READ regex (which already encodes the optional "catalog/" prefix)
+// continues to work without modification.
+const CATALOG_DIR = path.join(PROJECT_ROOT, 'data');
+// LEGACY_DATA_DIR is the pre-split location of per-install user data. Used
+// only by the one-time migration step below to seed USER_DATA_DIR on first
+// run; never read at runtime after that.
+const LEGACY_DATA_DIR = path.join(PROJECT_ROOT, 'data');
+// DEMO_DIR holds curated example data the user can opt into via
+// POST /load-demo-data. Shipped in-repo, read-only, never overwritten.
+const DEMO_DIR = path.join(PROJECT_ROOT, 'data', 'demo');
+
+/** OS-appropriate per-install user data directory. Overridable via
+ *  HASPEL_DATA_DIR. The defaults match what Tauri 2's app_data_dir() returns
+ *  on each platform, so the eventual Tauri migration is a no-op. */
+function getUserDataDir() {
+  if (process.env.HASPEL_DATA_DIR) return path.resolve(process.env.HASPEL_DATA_DIR);
+  const home = homedir();
+  if (process.platform === 'win32') {
+    const appdata = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+    return path.join(appdata, 'Haspel', 'data');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'Haspel', 'data');
+  }
+  const xdg = process.env.XDG_DATA_HOME || path.join(home, '.local', 'share');
+  return path.join(xdg, 'haspel', 'data');
+}
+const USER_DATA_DIR = getUserDataDir();
+
+// Files we treat as per-install user data (vs. read-only catalog seed).
+const USER_DATA_FILES = [
+  'filaments.json',
+  'accessories.json',
+  'shopping.json',
+  'empty-spools.json',
+  'brand-logos.json',
+  'ai-cache.json',
+  'settings.json',
+];
 
 const HOST = '127.0.0.1';
 const PORT = parseInt(process.env.HELPER_PORT || '5174', 10);
@@ -80,12 +120,60 @@ async function readJsonBody(req) {
 }
 
 function resolveDataPath(filename) {
-  const target = path.resolve(DATA_DIR, filename);
-  const rel = path.relative(DATA_DIR, target);
+  // catalog/* is read-only seed bundled with the app — resolves under the repo.
+  // Everything else is per-install user data — resolves under USER_DATA_DIR.
+  const root = filename.startsWith('catalog/') ? CATALOG_DIR : USER_DATA_DIR;
+  const target = path.resolve(root, filename);
+  const rel = path.relative(root, target);
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new Error('path traversal');
   }
   return target;
+}
+
+/** One-time migration: copy any user-data file that exists at the legacy
+ *  repo location but NOT yet at USER_DATA_DIR. Preserves mtime so the
+ *  user's history is intact. Never deletes the originals — the repo-side
+ *  cleanup (resetting seeds to empty + .gitignore) happens in a separate
+ *  manual commit once the user has verified migration worked. Idempotent. */
+async function migrateLegacyDataIfNeeded() {
+  try {
+    await mkdir(USER_DATA_DIR, { recursive: true });
+  } catch (err) {
+    console.error(`[migrate] failed to create user data dir ${USER_DATA_DIR}: ${err.message}`);
+    return;
+  }
+  // Skip migration entirely when running against an explicit override that
+  // points at the legacy location — would be a no-op, and the equality check
+  // is the cheapest way to avoid self-overwrites in dev.
+  if (path.resolve(USER_DATA_DIR) === path.resolve(LEGACY_DATA_DIR)) {
+    console.log(`[migrate] user_data_dir == legacy data dir (${USER_DATA_DIR}); skipping migration`);
+    return;
+  }
+  let copied = 0;
+  let skipped = 0;
+  for (const file of USER_DATA_FILES) {
+    const dest = path.join(USER_DATA_DIR, file);
+    if (existsSync(dest)) { skipped += 1; continue; }
+    const src = path.join(LEGACY_DATA_DIR, file);
+    if (!existsSync(src)) continue;
+    try {
+      await copyFile(src, dest);
+      try {
+        const srcStat = await stat(src);
+        await utimes(dest, srcStat.atime, srcStat.mtime);
+      } catch { /* mtime is nice-to-have, not required */ }
+      console.log(`[migrate] copied ${file} from repo to ${dest}`);
+      copied += 1;
+    } catch (err) {
+      console.error(`[migrate] failed to copy ${file}: ${err.message}`);
+    }
+  }
+  if (copied === 0 && skipped === 0) {
+    console.log(`[migrate] no legacy user data found at ${LEGACY_DATA_DIR}; nothing to do`);
+  } else if (copied === 0) {
+    console.log(`[migrate] all targets already present at ${USER_DATA_DIR}; nothing to do`);
+  }
 }
 
 function defaultFor(filename) {
@@ -170,7 +258,6 @@ const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
 ].filter(Boolean);
 
-import { existsSync } from 'node:fs';
 import { readFile as fsReadFile } from 'node:fs/promises';
 
 function resolveBrowser() {
@@ -673,6 +760,9 @@ const server = createServer(async (req, res) => {
         ok: true,
         started_at: STARTED_AT,
         last_heartbeat: lastHeartbeatIso,
+        user_data_dir: USER_DATA_DIR,
+        catalog_dir: CATALOG_DIR,
+        demo_dir: DEMO_DIR,
       });
     }
 
@@ -928,6 +1018,49 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    if (req.method === 'POST' && p === '/load-demo-data') {
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const overwrite = body.overwrite === true;
+      const copied = [];
+      const skipped = [];
+      for (const file of USER_DATA_FILES) {
+        const demoPath = path.join(DEMO_DIR, file);
+        if (!existsSync(demoPath)) continue;
+        const userPath = path.join(USER_DATA_DIR, file);
+        if (!overwrite && existsSync(userPath)) {
+          // Non-empty guard: only skip if the user file actually has content;
+          // otherwise we'd never seed a fresh install whose helper created
+          // empty stub files on first save.
+          try {
+            const raw = await readFile(userPath, 'utf8');
+            const parsed = JSON.parse(raw);
+            const isEmpty = Array.isArray(parsed)
+              ? parsed.length === 0
+              : (parsed && typeof parsed === 'object'
+                  ? Object.keys(parsed).length === 0 || (typeof parsed.count === 'number' && parsed.count === 0)
+                  : false);
+            if (!isEmpty) { skipped.push(file); continue; }
+          } catch {
+            // Unparseable user file — treat as empty and overwrite.
+          }
+        }
+        try {
+          const demoRaw = await readFile(demoPath, 'utf8');
+          // Validate parseable before write so a malformed demo doesn't poison user data.
+          JSON.parse(demoRaw);
+          await mkdir(USER_DATA_DIR, { recursive: true });
+          const tmp = userPath + '.tmp';
+          await writeFile(tmp, demoRaw, 'utf8');
+          await rename(tmp, userPath);
+          copied.push(file);
+        } catch (err) {
+          console.error(`[demo] failed to load ${file}: ${err.message}`);
+        }
+      }
+      return send(res, 200, { ok: true, copied, skipped, user_data_dir: USER_DATA_DIR });
+    }
+
     return send(res, 404, { ok: false, error: 'not found' });
   } catch (err) {
     console.error('handler error:', err);
@@ -949,8 +1082,11 @@ if (process.env.WATCHDOG_DISABLED === '1') {
   watchdogTimer.unref();
 }
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log(`helper listening on http://${HOST}:${PORT}`);
+  console.log(`user_data_dir: ${USER_DATA_DIR}`);
+  console.log(`catalog_dir:   ${CATALOG_DIR}`);
+  await migrateLegacyDataIfNeeded();
 });
 
 function shutdown(sig) {

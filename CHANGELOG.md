@@ -5,6 +5,14 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 ## [Unreleased]
 
 ### Changed
+- **Per-install user data now lives outside the repo.** The helper resolves user data to OS-conventional dirs: `%APPDATA%\Haspel\data\` on Windows, `~/Library/Application Support/Haspel/data/` on macOS, `$XDG_DATA_HOME/haspel/data/` on Linux (defaults to `~/.local/share/haspel/data/`). Override via `HASPEL_DATA_DIR` env var. Catalog seed (`data/catalog/*.json`) stays in the repo and is read-only. On first start with the new helper, any existing user-data file (`filaments.json`, `accessories.json`, `shopping.json`, `empty-spools.json`, `brand-logos.json`, `ai-cache.json`, `settings.json`) found at the legacy `<repo>/data/` location is copied into `USER_DATA_DIR` (preserves mtime, idempotent, never deletes originals). The paths chosen match what Tauri 2's `app_data_dir()` returns on each platform, so the planned Tauri packaging is a drop-in. **Repo seed reset (replacing Vince's personal data with empty arrays + gitignoring `ai-cache.json` / `brand-logos.json`) is a planned follow-up commit, intentionally deferred until migration is verified.**
+
+### Added
+- **`POST /api/load-demo-data` + Settings "Load demo data" button.** Helper ships small curated demo content at `data/demo/{filaments,accessories,shopping,empty-spools}.json` (read-only seed). The Settings page exposes a one-click button that copies the demo files into the per-install user data dir. Skips any file the user has already populated unless the "also overwrite" checkbox is ticked.
+- **`GET /healthz`** now reports `user_data_dir`, `catalog_dir`, `demo_dir`. The Settings page surfaces `user_data_dir` so the user can see exactly where their inventory lives.
+- **`useHealthz()` composable** at `app/src/composables/useHealthz.ts` — reusable wrapper around the helper's healthz endpoint, ready for future settings/diagnostics surfaces.
+
+### Changed
 - **Brand identity: Haspel.** Replaced the placeholder cyan-triangle SVG icon with the new "H-in-a-spool" Haspel logo (white on indigo `#3730a3`). Wired across favicon (`app/public/favicon.ico`, 256×256 PNG-embedded ICO), PWA manifest (`app-icon-192.png` + `app-icon-512.png` with `purpose: any` and a `maskable` variant), `index.html` page title (`Haspel — 3D Printer Supplies`), theme-color meta + manifest theme/background colors, and the in-app header (logo image left of an "Haspel" wordmark + new "3D printing supplies tracker" subtitle, replacing the previous "Bambu Lab P2S Combo · AMS 2 Pro"). The Windows shortcut installer (`scripts/install-shortcut.ps1`) already picks up `scripts/icon.ico` automatically — populated with the same 256×256 PNG-embedded ICO so taskbar / Start Menu / Desktop pins show the spool. Old `app/public/icon.svg` removed.
 
 ### Added

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "demo-0001-pla-basic-black",
+    "brand": "Bambu Lab",
+    "name": "PLA Basic",
+    "variant": "Black",
+    "sku": "GFA00-K0",
+    "product_url": "https://eu.store.bambulab.com/products/pla-basic-filament",
+    "color_code": "K0",
+    "swatch": {
+      "hex": "#000000",
+      "stops": ["#000000"],
+      "effects": [],
+      "source": "demo"
+    },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-01-01",
+    "ai": {
+      "type": "PLA",
+      "abrasive": false,
+      "p2s_compatibility": {
+        "ams2pro": true,
+        "hardened_nozzle_required": false,
+        "notes": "Reliable workhorse PLA — first-print friendly, AMS-safe."
+      },
+      "drying": { "temp_c": 45, "hours": 8, "desiccant_recommended": true },
+      "print_temp_c": [190, 220],
+      "bed_temp_c": [35, 45],
+      "usage_notes": "Standard PLA. Sticks well to textured PEI and smooth PEI build plates. Good first filament to try.",
+      "annealable": false
+    }
+  },
+  {
+    "id": "demo-0002-petg-translucent",
+    "brand": "Generic",
+    "name": "PETG Translucent",
+    "variant": "Clear",
+    "sku": "",
+    "product_url": "",
+    "color_code": "",
+    "swatch": {
+      "hex": "#dde7e8",
+      "stops": ["#dde7e8"],
+      "effects": ["translucent"],
+      "source": "demo"
+    },
+    "inventory": { "sealed": 0, "open": 1, "in_use": 0 },
+    "spool_grams_total": 1000,
+    "added_at": "2026-01-01",
+    "ai": {
+      "type": "PETG",
+      "abrasive": false,
+      "p2s_compatibility": {
+        "ams2pro": false,
+        "hardened_nozzle_required": false,
+        "notes": "Non-Bambu PETG is not AMS-safe — feeds reliably from external spool holder only."
+      },
+      "drying": { "temp_c": 65, "hours": 6, "desiccant_recommended": true },
+      "print_temp_c": [230, 250],
+      "bed_temp_c": [70, 80],
+      "usage_notes": "Tough, slightly flexible, more heat-resistant than PLA. Watch for stringing — dry before printing if it's been open more than a few days.",
+      "annealable": false
+    }
+  }
+]
