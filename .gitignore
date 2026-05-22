@@ -26,3 +26,11 @@ node_modules/
 
 # Helper PDF render scratch (Edge headless tmp + last-rendered PDF)
 .tmp/
+
+# Per-install user data — generated/edited at runtime, never committed.
+# (The canonical location is %APPDATA%\Haspel\data\ on Windows, etc.;
+# see helper/index.mjs getUserDataDir(). These ignores stop a stray
+# `git add` from re-tracking them if someone runs an older helper that
+# still writes to <repo>/data/.)
+data/ai-cache.json
+data/brand-logos.json
