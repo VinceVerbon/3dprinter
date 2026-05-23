@@ -4,6 +4,7 @@ import { useFilamentsStore } from '../stores/filaments'
 import { useAccessoriesStore } from '../stores/accessories'
 import type { Filament, Accessory, AccessoryCategory } from '../types'
 import type { ImportResult, ImportedItem } from './OrderDropZone.vue'
+import { cleanFilamentName, detectPackaging } from '../lib/filamentName'
 import { Check, X } from 'lucide-vue-next'
 
 const props = defineProps<{ result: ImportResult }>()
@@ -33,7 +34,7 @@ function findMatch(item: ImportedItem): string | null {
       (item.sku && norm(x.sku) === norm(item.sku)) ||
       (item.ean && norm(x.ean) === norm(item.ean)) ||
       (norm(x.brand) === norm(item.brand) &&
-       norm(x.name) === norm(item.name) &&
+       norm(x.name) === norm(cleanFilamentName(item.name)) &&
        norm(x.variant) === norm(item.variant)),
     )
     return f?.id ?? null
@@ -79,39 +80,60 @@ const message = ref<string | null>(null)
 
 const newFilamentIds: { id: string; item: ImportedItem }[] = []
 
+async function resolveOneSwatch({ id, item }: { id: string; item: ImportedItem }): Promise<boolean> {
+  try {
+    const r = await fetch('/api/lookup-swatch', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        brand: item.brand,
+        name: item.name,
+        variant: item.variant,
+        sku: item.sku,
+      }),
+    })
+    if (!r.ok) return false
+    const json = await r.json() as {
+      ok?: boolean
+      result?: { hex?: string; stops?: string[]; effects?: string[]; source?: string; confidence?: string }
+    }
+    if (!json.ok || !json.result || !json.result.hex) return false
+    const swatch = {
+      hex: json.result.hex,
+      stops: json.result.stops?.length ? json.result.stops : [json.result.hex],
+      effects: ((json.result.effects ?? []).filter(e => ['matte','silk','sparkle','marble','metallic','glow','multicolor','translucent','transparent'].includes(e)) as Filament['swatch']['effects']),
+      source: 'ai' as const,
+    }
+    filaments.update(id, { swatch } as Partial<Filament>)
+    return true
+  } catch {
+    /* helper offline or claude failed — keep Tier 1 hint */
+    return false
+  }
+}
+
+// Each /lookup-swatch spawns a heavyweight `claude` + WebFetch subprocess in
+// the helper. Firing them all at once (the old Promise.all) overloaded the
+// machine on larger orders, so some calls timed out and silently fell back to
+// the weaker Tier-1 hex hint — that's why a re-import (warm cache) produced
+// noticeably better swatches. Cap concurrency so every lookup actually lands.
+const SWATCH_CONCURRENCY = 3
+
 async function resolveSwatchesAsync(): Promise<number> {
   if (newFilamentIds.length === 0) return 0
   let resolved = 0
-  await Promise.all(newFilamentIds.map(async ({ id, item }) => {
-    try {
-      const r = await fetch('/api/lookup-swatch', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          brand: item.brand,
-          name: item.name,
-          variant: item.variant,
-          sku: item.sku,
-        }),
-      })
-      if (!r.ok) return
-      const json = await r.json() as {
-        ok?: boolean
-        result?: { hex?: string; stops?: string[]; effects?: string[]; source?: string; confidence?: string }
+  const queue = [...newFilamentIds]
+  const worker = async () => {
+    for (;;) {
+      const next = queue.shift()
+      if (!next) return
+      if (await resolveOneSwatch(next)) {
+        resolved++
+        message.value = `Imported. Resolving swatches… (${resolved}/${newFilamentIds.length})`
       }
-      if (!json.ok || !json.result || !json.result.hex) return
-      const swatch = {
-        hex: json.result.hex,
-        stops: json.result.stops?.length ? json.result.stops : [json.result.hex],
-        effects: ((json.result.effects ?? []).filter(e => ['matte','silk','sparkle','marble','metallic','glow','multicolor','translucent','transparent'].includes(e)) as Filament['swatch']['effects']),
-        source: 'ai' as const,
-      }
-      filaments.update(id, { swatch } as Partial<Filament>)
-      resolved++
-    } catch {
-      /* helper offline or claude failed — keep Tier 1 hint */
     }
-  }))
+  }
+  await Promise.all(Array.from({ length: Math.min(SWATCH_CONCURRENCY, queue.length) }, worker))
   if (resolved > 0) await filaments.save()
   return resolved
 }
@@ -127,22 +149,36 @@ async function apply() {
     if (!row.enabled) continue
     if (item.kind === 'filament') {
       touchedFilaments = true
-      if (row.matchedId) {
-        const existing = filaments.items.find(f => f.id === row.matchedId)
+      // Re-check identity at apply time, not just when the dialog opened. The
+      // matching entry may have been added by an earlier row in this same batch
+      // or loaded after the dialog mounted — without this, a re-import creates a
+      // duplicate spool instead of bumping the sealed count.
+      const matchId = row.matchedId ?? findMatch(item)
+      if (matchId) {
+        const existing = filaments.items.find(f => f.id === matchId)
         if (existing) {
-          const inv = existing.inventory ?? { sealed: 0, open: 0, in_use: 0 }
+          const inv = existing.inventory ?? { sealed: 0, open: 0, in_use: 0, on_spool: 0, refill: 0 }
+          // Bump the matching packaging count alongside sealed so the
+          // on_spool+refill == sealed+open+in_use invariant stays balanced.
+          const isRefill = detectPackaging(item.name) === 'refill'
           filaments.update(existing.id, {
-            inventory: { ...inv, sealed: (inv.sealed ?? 0) + row.quantity },
+            inventory: {
+              ...inv,
+              sealed: (inv.sealed ?? 0) + row.quantity,
+              on_spool: (inv.on_spool ?? 0) + (isRefill ? 0 : row.quantity),
+              refill: (inv.refill ?? 0) + (isRefill ? row.quantity : 0),
+            },
           } as Partial<Filament>)
         }
       } else {
         const hexHint = item.hex ?? null
         const stopsHint = item.stops && item.stops.length > 0 ? item.stops : (hexHint ? [hexHint] : null)
+        const isRefill = detectPackaging(item.name) === 'refill'
         const newId = uuid('f')
         const f: Filament = {
           id: newId,
           brand: item.brand,
-          name: item.name,
+          name: cleanFilamentName(item.name),
           variant: item.variant,
           sku: item.sku,
           ean: item.ean,
@@ -154,7 +190,11 @@ async function apply() {
                 source: 'ai',
               }
             : { hex: '#888888', stops: ['#888888'], effects: [], source: 'manual' },
-          inventory: { sealed: row.quantity, open: 0, in_use: 0 },
+          inventory: {
+            sealed: row.quantity, open: 0, in_use: 0,
+            on_spool: isRefill ? 0 : row.quantity,
+            refill: isRefill ? row.quantity : 0,
+          },
           spool_grams_total: 1000,
           purchased: {
             date: props.result.order_date,

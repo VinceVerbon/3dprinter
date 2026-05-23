@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { Filament } from '../../types'
 import { amsCompat } from '../../lib/labels/amsCompat'
 import { useBrandLogosStore, brandSlug } from '../../stores/brandLogos'
+import { cleanFilamentName } from '../../lib/filamentName'
 import { Check, X } from 'lucide-vue-next'
 
 const props = defineProps<{ filament: Filament }>()
@@ -29,37 +30,11 @@ const articleNumber = computed(() => {
 
 const variantLabel = computed(() => props.filament.variant || '')
 
-/** Strip retailer-style cruft from product names so the label stays readable.
- *  Crucially KEEPS variant-identifying tokens that appear after an em-dash:
- *    "TPU 85A / TPU 90A — TPU 85A 1 kg with spool" → "TPU 85A"
- *    "TPU 85A / TPU 90A — TPU 90A 1 kg with spool" → "TPU 90A"
- *    "PLA Silk Multi-Color 1 kg with spool"        → "PLA Silk Multi-Color"
- *    "PLA Matte 1 kg refill (Bijvullen)"           → "PLA Matte (refill)"
- *  Variant/colour name lives in its own row below and is not duplicated here. */
-const displayTitle = computed(() => {
-  let n = props.filament.name
-  // If the name has " — <specific>" after a combo-prefix, use the specific half.
-  // We detect this by seeing whether the post-dash chunk looks like a narrowed
-  // product identifier (e.g. one branch of an "X / Y" prefix). If it does,
-  // discard the combo prefix and keep only the specific half.
-  const dashSplit = n.split(/\s+[—–]\s+/)
-  if (dashSplit.length >= 2) {
-    const prefix = dashSplit[0].trim()
-    const suffix = dashSplit.slice(1).join(' — ').trim()
-    // If the prefix contains "/" it's a combo like "TPU 85A / TPU 90A" and the
-    // suffix names the actual variant — prefer the suffix.
-    if (/\s\/\s/.test(prefix)) n = suffix
-    else n = prefix
-  }
-  // Drop "1 kg with spool" / "500 g refill" trailing weight phrases.
-  n = n.replace(/\s+\d+(?:[.,]\d+)?\s*(?:kg|g)\s+(?:with|incl(?:\.|usive)?|met)\s+spool/i, '')
-  n = n.replace(/\s+\d+(?:[.,]\d+)?\s*(?:kg|g)\s+refill/i, ' refill')
-  // "(Bijvullen)" → "(refill)" so the badge reads in English consistently.
-  n = n.replace(/\(\s*Bijvullen\s*\)/i, '(refill)')
-  // Collapse "refill refill" duplicates that the two passes above can create.
-  n = n.replace(/\brefill\b[^a-z]*\(refill\)/i, '(refill)')
-  return n.trim()
-})
+/** Title is just the clean product name. Stored names are normalised at import
+ *  time and by the data migration, so this is normally a pass-through; we still
+ *  run the cleaner defensively in case an un-migrated record slips through.
+ *  Packaging (refill vs on-spool) is tracked in inventory, NOT in the title. */
+const displayTitle = computed(() => cleanFilamentName(props.filament.name))
 
 /** Pick a font-size tier based on title length so very long titles still fit. */
 const titleSizePt = computed(() => {

@@ -36,9 +36,15 @@ export interface FilamentPurchase {
 
 /** A record describes one (brand, name, variant) — i.e. one SKU-equivalent. Multiple physical spools of the same SKU are tracked via inventory counts, not duplicate records. */
 export interface FilamentInventory {
-  sealed: number              // unopened spools on the shelf
-  open: number                // opened, not currently loaded in the printer
+  // --- state breakdown (how the stock is stored right now) ---
+  sealed: number              // unopened spools held in reserve (off-shelf)
+  open: number                // opened, not currently loaded in the printer (e.g. in the drybox)
   in_use: number              // currently loaded in the AMS / direct extruder
+  // --- packaging breakdown (independent partition of the SAME total) ---
+  // INVARIANT: on_spool + refill === sealed + open + in_use (total in stock).
+  // The form refuses to save when this is violated.
+  on_spool: number            // units that ship wound on their own (reusable) spool
+  refill: number              // refills — filament only, no spool (mount on a reusable spool)
 }
 
 export interface Filament {
@@ -62,6 +68,13 @@ export interface Filament {
   spool_grams_total?: number  // grams per spool for this SKU (1000 default for Bambu refills, 500 for support)
   purchased?: FilamentPurchase
   added_at: string            // ISO date
+}
+
+/** A filament that was removed from active inventory but kept in history, so an
+ *  earlier-used filament can be revisited or restored. Carries the full record
+ *  (swatch, ai, inventory, purchase) — restore re-creates it verbatim. */
+export interface ArchivedFilament extends Filament {
+  removed_at: string          // ISO timestamp the filament was archived
 }
 
 export type AccessoryCategory =
@@ -107,8 +120,29 @@ export interface AiCacheEntry {
 
 export type AiCache = Record<string, AiCacheEntry>  // key = `${brand}|${name}` lowercased
 
+export type AiProvider = 'claude-cli' | 'anthropic-api' | 'openai-api' | 'gemini-api' | 'openrouter-api' | 'none'
+
+export type AiTask = 'enrichment' | 'swatch' | 'order_import'
+
 export interface AppSettings {
   default_filament_brand?: string
+  /** Which backend resolves AI lookups. 'claude-cli' (default) shells out to the
+   *  user's locally-installed `claude` CLI (OAuth, no key, own quota). The
+   *  *-api providers call the respective REST API with a user-supplied key.
+   *  'none' disables all AI lookups (manual entry only). */
+  ai_provider?: AiProvider
+  /** Per-provider API keys — only the one matching ai_provider is used. Stored
+   *  in the per-install settings.json (outside the repo), never committed. The
+   *  matching env var (ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY /
+   *  OPENROUTER_API_KEY) takes precedence over the stored value. */
+  anthropic_api_key?: string
+  openai_api_key?: string
+  gemini_api_key?: string
+  openrouter_api_key?: string
+  /** Per-task model override. Falls back to ai_model (Claude backends only),
+   *  then the provider's built-in default. */
+  ai_models?: Partial<Record<AiTask, string>>
+  /** Legacy/global default model. Retained for back-compat with older settings. */
   ai_model?: string          // claude-sonnet-4-6 default
   ai_lookup_enabled?: boolean
 }

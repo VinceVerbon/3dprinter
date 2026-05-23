@@ -213,9 +213,21 @@ const FILAMENT_PROMPT = (brand, name) => `Given filament: brand=${brand} name=${
 }
 Do NOT include markdown fences, explanations, or any text outside the JSON.`;
 
-function runClaude(prompt, { extraArgs = [], timeoutMs = 90_000, cwd } = {}) {
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const AI_PROVIDERS = ['claude-cli', 'anthropic-api', 'openai-api', 'gemini-api', 'openrouter-api', 'none'];
+// Per-provider default model when the user hasn't picked one. Editable in the UI.
+const PROVIDER_DEFAULT_MODEL = {
+  'claude-cli': 'claude-sonnet-4-6',
+  'anthropic-api': 'claude-sonnet-4-6',
+  'openai-api': 'gpt-4o',
+  'gemini-api': 'gemini-2.0-flash',
+  'openrouter-api': 'openai/gpt-4o',
+  'none': 'claude-sonnet-4-6',
+};
+
+function runClaude(prompt, { extraArgs = [], timeoutMs = 90_000, cwd, model = DEFAULT_MODEL } = {}) {
   return new Promise((resolve, reject) => {
-    const args = ['--print', '--output-format', 'json', '--model', 'claude-sonnet-4-6', ...extraArgs];
+    const args = ['--print', '--output-format', 'json', '--model', model, ...extraArgs];
     // shell:true on Windows so cmd.exe resolves claude.cmd via PATH.
     // Prompt is piped via stdin to dodge cmd.exe escape issues with `|` chars.
     const child = spawn('claude', args, {
@@ -244,6 +256,236 @@ function runClaude(prompt, { extraArgs = [], timeoutMs = 90_000, cwd } = {}) {
     child.stdin.end();
   });
 }
+
+// ---------------- AI provider abstraction ----------------
+// The user picks one of three backends in Settings (persisted to settings.json
+// in USER_DATA_DIR): 'claude-cli' (default — shells out to the locally-installed
+// claude CLI, OAuth, no key), 'anthropic-api' (direct REST with a user key), or
+// 'none' (manual entry, no AI). The helper reads the choice fresh on every call
+// so changing it in Settings takes effect without a restart.
+
+async function getAiConfig() {
+  let s = {};
+  try { s = await readDataFile('settings.json'); } catch { s = {}; }
+  if (!s || typeof s !== 'object' || Array.isArray(s)) s = {};
+  const provider = AI_PROVIDERS.includes(s.ai_provider) ? s.ai_provider : 'claude-cli';
+  // Per-provider key; the matching env var wins over the stored value so an
+  // operator can inject a key without writing it to disk. Never logged/returned.
+  const apiKeys = {
+    anthropic: (process.env.ANTHROPIC_API_KEY || s.anthropic_api_key || '').trim(),
+    openai: (process.env.OPENAI_API_KEY || s.openai_api_key || '').trim(),
+    gemini: (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || s.gemini_api_key || '').trim(),
+    openrouter: (process.env.OPENROUTER_API_KEY || s.openrouter_api_key || '').trim(),
+  };
+  const keyFor = (pv) => ({
+    'anthropic-api': apiKeys.anthropic,
+    'openai-api': apiKeys.openai,
+    'gemini-api': apiKeys.gemini,
+    'openrouter-api': apiKeys.openrouter,
+  }[pv] || '');
+  const models = (s.ai_models && typeof s.ai_models === 'object' && !Array.isArray(s.ai_models)) ? s.ai_models : {};
+  const modelFor = (task) => {
+    const m = models[task];
+    if (typeof m === 'string' && m.trim()) return m.trim();
+    // Legacy single ai_model only applies to the Claude backends.
+    if ((provider === 'claude-cli' || provider === 'anthropic-api') && typeof s.ai_model === 'string' && s.ai_model.trim()) return s.ai_model.trim();
+    return PROVIDER_DEFAULT_MODEL[provider] || DEFAULT_MODEL;
+  };
+  return { provider, apiKeys, keyFor, modelFor, enabled: s.ai_lookup_enabled !== false };
+}
+
+// Direct Anthropic REST call (no SDK dependency — keeps the eventual pkg sidecar
+// lean). Returns the concatenated assistant text. Optional pdfBase64 attaches
+// the receipt as a document block so order-import works without a Read tool.
+async function runAnthropicApi({ system, prompt, model, apiKey, timeoutMs = 90_000, pdfBase64 } = {}) {
+  if (!apiKey) throw Object.assign(new Error('no Anthropic API key configured'), { code: 'NO_API_KEY' });
+  const content = [];
+  if (pdfBase64) {
+    content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } });
+  }
+  content.push({ type: 'text', text: prompt });
+  const reqBody = { model: model || DEFAULT_MODEL, max_tokens: 4096, messages: [{ role: 'user', content }] };
+  if (system) reqBody.system = system;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(reqBody),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw Object.assign(new Error('timeout'), { code: 'TIMEOUT' });
+    throw err;
+  }
+  clearTimeout(timer);
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = json && json.error && json.error.message ? json.error.message : `HTTP ${res.status}`;
+    throw new Error(`anthropic api: ${detail}`);
+  }
+  const text = Array.isArray(json?.content)
+    ? json.content.filter((b) => b && b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('')
+    : '';
+  if (!text) throw Object.assign(new Error('empty anthropic api response'), { code: 'EMPTY' });
+  return text;
+}
+
+// OpenAI Chat Completions schema — shared by OpenAI and OpenRouter (OpenRouter
+// mirrors it). PDF is attached as a `file` content part (base64 data URL); the
+// target model must support PDF input (e.g. gpt-4o) or, on OpenRouter, the
+// file-parser plugin. Returns the assistant message text.
+async function runOpenAiCompatible({ baseUrl, apiKey, model, system, prompt, pdfBase64, timeoutMs = 90_000, extraHeaders = {} } = {}) {
+  if (!apiKey) throw Object.assign(new Error('no API key configured'), { code: 'NO_API_KEY' });
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  const userContent = pdfBase64
+    ? [
+        { type: 'text', text: prompt },
+        { type: 'file', file: { filename: 'order.pdf', file_data: `data:application/pdf;base64,${pdfBase64}` } },
+      ]
+    : prompt;
+  messages.push({ role: 'user', content: userContent });
+  const reqBody = { model, messages, max_tokens: 4096 };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}`, ...extraHeaders },
+      body: JSON.stringify(reqBody),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw Object.assign(new Error('timeout'), { code: 'TIMEOUT' });
+    throw err;
+  }
+  clearTimeout(timer);
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const label = baseUrl.includes('openrouter') ? 'openrouter' : 'openai';
+    const detail = json && json.error ? (json.error.message || JSON.stringify(json.error)) : `HTTP ${res.status}`;
+    throw new Error(`${label} api: ${detail}`);
+  }
+  const content = json?.choices?.[0]?.message?.content;
+  const text = typeof content === 'string'
+    ? content
+    : (Array.isArray(content) ? content.map((p) => (typeof p === 'string' ? p : p?.text || '')).join('') : '');
+  if (!text) throw Object.assign(new Error('empty api response'), { code: 'EMPTY' });
+  return text;
+}
+
+// Google Gemini generateContent. Key passed via x-goog-api-key header (not the
+// URL) so it can't leak into request logs. PDF attaches as inline_data.
+async function runGemini({ apiKey, model, system, prompt, pdfBase64, timeoutMs = 90_000 } = {}) {
+  if (!apiKey) throw Object.assign(new Error('no API key configured'), { code: 'NO_API_KEY' });
+  const parts = [{ text: prompt }];
+  if (pdfBase64) parts.push({ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } });
+  const reqBody = { contents: [{ role: 'user', parts }] };
+  if (system) reqBody.systemInstruction = { parts: [{ text: system }] };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(reqBody),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw Object.assign(new Error('timeout'), { code: 'TIMEOUT' });
+    throw err;
+  }
+  clearTimeout(timer);
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = json && json.error && json.error.message ? json.error.message : `HTTP ${res.status}`;
+    throw new Error(`gemini api: ${detail}`);
+  }
+  const cand = json?.candidates?.[0];
+  const text = Array.isArray(cand?.content?.parts) ? cand.content.parts.map((p) => p?.text || '').join('') : '';
+  if (!text) throw Object.assign(new Error('empty gemini response'), { code: 'EMPTY' });
+  return text;
+}
+
+// Provider dispatch — given an explicit provider/model/key (not read from
+// config), run the prompt and return the inner assistant text. Used by both
+// aiComplete (config-driven) and /ai-selftest (form-driven).
+async function callProvider({ provider, model, apiKey, system, prompt, mode = 'text', cwd, timeoutMs, pdfBase64 } = {}) {
+  if (provider === 'claude-cli') {
+    let extraArgs = [];
+    if (mode === 'web') {
+      extraArgs = ['--allowedTools', 'WebFetch,Read', '--permission-mode', 'bypassPermissions', '--no-session-persistence'];
+      if (system) extraArgs.push('--append-system-prompt', system);
+    } else if (mode === 'pdf') {
+      extraArgs = ['--allowedTools', 'Read', '--permission-mode', 'bypassPermissions', '--no-session-persistence'];
+      if (system) extraArgs.push('--append-system-prompt', system);
+    }
+    const raw = await runClaude(prompt, { model, extraArgs, cwd, timeoutMs });
+    return extractClaudeText(raw);
+  }
+  if (provider === 'anthropic-api') {
+    return runAnthropicApi({ system, prompt, model, apiKey, timeoutMs: timeoutMs || 90_000, pdfBase64 });
+  }
+  if (provider === 'openai-api') {
+    return runOpenAiCompatible({ baseUrl: 'https://api.openai.com/v1', apiKey, model, system, prompt, pdfBase64, timeoutMs: timeoutMs || 90_000 });
+  }
+  if (provider === 'openrouter-api') {
+    return runOpenAiCompatible({
+      baseUrl: 'https://openrouter.ai/api/v1', apiKey, model, system, prompt, pdfBase64, timeoutMs: timeoutMs || 90_000,
+      extraHeaders: { 'HTTP-Referer': 'http://127.0.0.1:5173', 'X-Title': 'Haspel' },
+    });
+  }
+  if (provider === 'gemini-api') {
+    return runGemini({ apiKey, model, system, prompt, pdfBase64, timeoutMs: timeoutMs || 90_000 });
+  }
+  throw Object.assign(new Error('unknown AI provider'), { code: 'AI_DISABLED' });
+}
+
+// Unified entry point used by all three lookups. `mode` controls capabilities:
+// 'text' (no tools), 'web' (CLI gets WebFetch+Read; the API providers resolve
+// from training knowledge only — no live fetch), 'pdf' (CLI reads the path in
+// the prompt; the API providers receive the PDF as base64). Returns the inner
+// assistant text — callers run parseLooseJson on it.
+async function aiComplete({ task, prompt, system, mode = 'text', cwd, timeoutMs, pdfPath, modelOverride } = {}) {
+  const cfg = await getAiConfig();
+  if (cfg.provider === 'none') throw Object.assign(new Error('AI is disabled in settings'), { code: 'AI_DISABLED' });
+  const model = (typeof modelOverride === 'string' && modelOverride.trim()) ? modelOverride.trim() : cfg.modelFor(task);
+  let pdfBase64;
+  if (mode === 'pdf' && pdfPath && cfg.provider !== 'claude-cli') {
+    pdfBase64 = (await readFile(pdfPath)).toString('base64');
+  }
+  return callProvider({
+    provider: cfg.provider, model, apiKey: cfg.keyFor(cfg.provider),
+    system, prompt, mode, cwd, timeoutMs, pdfBase64,
+  });
+}
+
+// Probe the claude CLI for the self-test (does not consume AI quota).
+function claudeVersion(timeoutMs = 15_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', ['--version'], { shell: process.platform === 'win32', windowsHide: true });
+    let out = '';
+    let err = '';
+    const t = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* noop */ } reject(Object.assign(new Error('timeout'), { code: 'TIMEOUT' })); }, timeoutMs);
+    child.stdout.on('data', (d) => { out += d.toString('utf8'); });
+    child.stderr.on('data', (d) => { err += d.toString('utf8'); });
+    child.on('error', (e) => { clearTimeout(t); reject(e); });
+    child.on('exit', (c) => { clearTimeout(t); c === 0 ? resolve(out.trim() || 'claude ok') : reject(new Error(err.trim() || `claude exit ${c}`)); });
+  });
+}
+// ---------------------------------------------------------
 
 // ---------------- Headless PDF rendering ----------------
 // Drives `msedge --headless --print-to-pdf` against the running Vite dev server
@@ -693,18 +935,12 @@ async function resolveSwatch(input, force) {
   const isBambu = /bambu/i.test(input.brand || '');
   const prompt = isBambu ? SWATCH_PROMPT_BAMBU(input) : SWATCH_PROMPT_GENERIC(input);
   const fallbackSource = isBambu ? 'bambu' : 'ai';
-  const raw = await runClaude(prompt, {
-    cwd: tmpdir(),
-    extraArgs: [
-      '--allowedTools', 'WebFetch,Read',
-      '--permission-mode', 'bypassPermissions',
-      '--no-session-persistence',
-      '--append-system-prompt', SWATCH_SYSTEM_PROMPT,
-    ],
-    timeoutMs: 180_000,
+  // 'web' mode: CLI gets WebFetch+Read; the Anthropic API path resolves from
+  // training knowledge only (no live fetch) — lower confidence but still useful.
+  const inner = await aiComplete({
+    task: 'swatch', prompt, system: SWATCH_SYSTEM_PROMPT, mode: 'web',
+    cwd: tmpdir(), timeoutMs: 180_000, modelOverride: input.model,
   });
-  let inner;
-  try { inner = extractClaudeText(raw); } catch { throw Object.assign(new Error('unparseable'), { raw: raw.slice(0, 500) }); }
   let parsed;
   try { parsed = parseLooseJson(inner); } catch { throw Object.assign(new Error('unparseable'), { raw: inner.slice(0, 500) }); }
   const normalised = normaliseSwatchResult(parsed, fallbackSource);
@@ -723,15 +959,7 @@ async function lookupFilament(brand, name, force) {
   if (!force && cache && Object.prototype.hasOwnProperty.call(cache, key)) {
     return { cached: true, result: cache[key] };
   }
-  const raw = await runClaude(FILAMENT_PROMPT(brand, name));
-  let inner;
-  try {
-    inner = extractClaudeText(raw);
-  } catch {
-    const e = new Error('unparseable');
-    e.raw = raw.slice(0, 500);
-    throw e;
-  }
+  const inner = await aiComplete({ task: 'enrichment', prompt: FILAMENT_PROMPT(brand, name), mode: 'text' });
   let parsed;
   try {
     parsed = parseLooseJson(inner);
@@ -815,6 +1043,8 @@ const server = createServer(async (req, res) => {
         const { cached, result } = await lookupFilament(brand, name, !!force);
         return send(res, 200, { ok: true, cached, result });
       } catch (err) {
+        if (err.code === 'AI_DISABLED') return send(res, 409, { ok: false, error: 'ai_disabled' });
+        if (err.code === 'NO_API_KEY') return send(res, 400, { ok: false, error: 'no_api_key' });
         if (err.code === 'TIMEOUT' || err.message === 'timeout') {
           return send(res, 504, { ok: false, error: 'timeout' });
         }
@@ -823,6 +1053,41 @@ const server = createServer(async (req, res) => {
         }
         console.error('lookup-filament error:', err);
         return send(res, 500, { ok: false, error: err.message });
+      }
+    }
+
+    if (req.method === 'POST' && p === '/ai-selftest') {
+      // Tests the chosen provider WITHOUT consuming real lookup quota. Accepts
+      // optional { provider, model, api_key } so the user can test the values in
+      // the Settings form before saving; falls back to the stored config. The
+      // API key is never echoed back in the response.
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const cfg = await getAiConfig();
+      const provider = AI_PROVIDERS.includes(body.provider) ? body.provider : cfg.provider;
+      const model = (typeof body.model === 'string' && body.model.trim())
+        ? body.model.trim()
+        : (PROVIDER_DEFAULT_MODEL[provider] || DEFAULT_MODEL);
+      if (provider === 'none') {
+        return send(res, 200, { ok: true, provider, detail: 'AI is disabled — manual entry only.' });
+      }
+      if (provider === 'claude-cli') {
+        try {
+          const v = await claudeVersion();
+          return send(res, 200, { ok: true, provider, detail: `claude CLI reachable: ${v}` });
+        } catch (err) {
+          return send(res, 200, { ok: false, provider, detail: `claude CLI not usable: ${String(err.message || err).slice(0, 200)}` });
+        }
+      }
+      // API providers — prefer a key supplied in the request (test-before-save),
+      // else the env/stored key for that provider. Key is never echoed back.
+      const apiKey = (typeof body.api_key === 'string' && body.api_key.trim()) ? body.api_key.trim() : cfg.keyFor(provider);
+      if (!apiKey) return send(res, 200, { ok: false, provider, detail: 'No API key set for this provider.' });
+      try {
+        await callProvider({ provider, model, apiKey, prompt: 'Reply with the single word: ok', timeoutMs: 25_000 });
+        return send(res, 200, { ok: true, provider, detail: `Reached ${provider} (${model}).` });
+      } catch (err) {
+        return send(res, 200, { ok: false, provider, detail: String(err.message || err).slice(0, 200) });
       }
     }
 
@@ -846,26 +1111,19 @@ const server = createServer(async (req, res) => {
         return send(res, 400, { ok: false, error: 'no_pdf_field' });
       }
       try {
-        const raw = await runClaude(ORDER_PROMPT(pdfPath, pdfFilename), {
-          // cwd=tmpdir keeps the project's CLAUDE.md / crosslog out of the
-          // claude session (otherwise the model can see the helper context
-          // and start questioning the prompt). --no-session-persistence
-          // keeps each extraction hermetic.
+        // mode 'pdf': CLI reads the file via the path embedded in ORDER_PROMPT
+        // (cwd=tmpdir keeps the project's CLAUDE.md / crosslog out of the claude
+        // session so the model doesn't question the prompt); the Anthropic API
+        // path instead receives the PDF as a base64 document block.
+        const inner = await aiComplete({
+          task: 'order_import',
+          prompt: ORDER_PROMPT(pdfPath, pdfFilename),
+          system: ORDER_SYSTEM_PROMPT,
+          mode: 'pdf',
           cwd: tmpdir(),
-          extraArgs: [
-            '--allowedTools', 'Read',
-            '--permission-mode', 'bypassPermissions',
-            '--no-session-persistence',
-            '--append-system-prompt', ORDER_SYSTEM_PROMPT,
-          ],
+          pdfPath,
           timeoutMs: 120_000,
         });
-        let inner;
-        try {
-          inner = extractClaudeText(raw);
-        } catch {
-          return send(res, 500, { ok: false, error: 'unparseable_wrapper', raw_preview: raw.slice(0, 500) });
-        }
         let parsed;
         try {
           parsed = parseLooseJson(inner);
@@ -879,6 +1137,8 @@ const server = createServer(async (req, res) => {
         parsed.ok = true;
         return send(res, 200, parsed);
       } catch (err) {
+        if (err.code === 'AI_DISABLED') return send(res, 409, { ok: false, error: 'ai_disabled' });
+        if (err.code === 'NO_API_KEY') return send(res, 400, { ok: false, error: 'no_api_key' });
         if (err.code === 'TIMEOUT' || err.message === 'timeout') {
           return send(res, 504, { ok: false, error: 'timeout' });
         }
@@ -1007,6 +1267,8 @@ const server = createServer(async (req, res) => {
         const { cached, result } = await resolveSwatch({ brand, name, variant, sku, color_code, product_url }, !!force);
         return send(res, 200, { ok: true, cached, result });
       } catch (err) {
+        if (err.code === 'AI_DISABLED') return send(res, 409, { ok: false, error: 'ai_disabled' });
+        if (err.code === 'NO_API_KEY') return send(res, 400, { ok: false, error: 'no_api_key' });
         if (err.code === 'TIMEOUT' || err.message === 'timeout') {
           return send(res, 504, { ok: false, error: 'timeout' });
         }
@@ -1071,15 +1333,37 @@ const server = createServer(async (req, res) => {
 let watchdogTimer = null;
 if (process.env.WATCHDOG_DISABLED === '1') {
   console.log('watchdog: DISABLED via WATCHDOG_DISABLED=1');
-} else {
+} else if (VITE_PID != null) {
+  // Dev mode: vite spawned us and already tears us down on its own shutdown
+  // (see app/vite.config.ts). Tie our lifetime to vite's PROCESS, not to PWA
+  // heartbeats. Browsers throttle/freeze background-tab timers, so a
+  // heartbeat-based watchdog would kill the helper whenever the user alt-tabs
+  // away for ~45s — i.e. the app dies under an open window. Tracking the parent
+  // pid instead means the helper stays alive for the entire dev session and
+  // exits promptly only once vite is actually gone.
   watchdogTimer = setInterval(() => {
-    if (Date.now() - watchdogResetAt > 45_000) {
-      console.log('watchdog: no heartbeat for 45s, exiting');
-      killVite('watchdog timeout');
+    try {
+      process.kill(VITE_PID, 0); // signal 0 = liveness probe; throws if gone
+    } catch {
+      console.log(`watchdog: vite pid=${VITE_PID} is gone, exiting`);
       process.exit(0);
     }
   }, 5_000);
   watchdogTimer.unref();
+  console.log(`watchdog: tracking vite pid=${VITE_PID} (heartbeat watchdog off in dev)`);
+} else {
+  // Standalone: no parent to track, so fall back to a heartbeat watchdog. Make
+  // it generous (default 10 min, overridable) so ordinary PWA backgrounding
+  // never kills it — only a genuinely-closed/crashed client eventually reaps.
+  const timeoutMs = parseInt(process.env.WATCHDOG_TIMEOUT_MS || '600000', 10);
+  watchdogTimer = setInterval(() => {
+    if (Date.now() - watchdogResetAt > timeoutMs) {
+      console.log(`watchdog: no heartbeat for ${Math.round(timeoutMs / 1000)}s, exiting`);
+      process.exit(0);
+    }
+  }, 5_000);
+  watchdogTimer.unref();
+  console.log(`watchdog: heartbeat mode, ${Math.round(timeoutMs / 1000)}s grace (standalone)`);
 }
 
 server.listen(PORT, HOST, async () => {

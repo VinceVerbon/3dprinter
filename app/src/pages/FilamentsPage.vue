@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
+import { useFilamentHistoryStore } from '../stores/filamentHistory'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
 import { useSwatchLookup } from '../composables/useSwatchLookup'
 import FilamentCard from '../components/FilamentCard.vue'
 import FilamentForm from '../components/FilamentForm.vue'
 import FilamentDetail from '../components/FilamentDetail.vue'
+import FilamentHistory from '../components/FilamentHistory.vue'
 import OrderDropZone, { type ImportResult } from '../components/OrderDropZone.vue'
 import OrderImportReview from '../components/OrderImportReview.vue'
-import type { Filament, Effect, FilamentType } from '../types'
-import { Plus, FileUp, X, Sparkles, Palette } from 'lucide-vue-next'
+import type { Filament, ArchivedFilament, Effect, FilamentType } from '../types'
+import { Plus, FileUp, X, Sparkles, Palette, History } from 'lucide-vue-next'
 
 const store = useFilamentsStore()
+const history = useFilamentHistoryStore()
+const showHistory = ref(false)
 const { lookup } = useFilamentLookup()
 const { lookup: swatchLookup } = useSwatchLookup()
 const showForm = ref(false)
@@ -101,7 +105,7 @@ const filterType = ref<FilamentType | ''>('')
 const filterEffect = ref<Effect | ''>('')
 const filterColor = ref<string>('')   // color family key, see COLOR_FAMILIES below
 
-onMounted(() => store.load())
+onMounted(() => { store.load(); history.load() })
 
 // --- Color families: map a hex to one of these buckets via HSL ---
 type ColorFamily = 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink' | 'black' | 'white' | 'gray' | 'brown' | 'multicolor'
@@ -236,10 +240,33 @@ async function onSubmit(f: Filament) {
   setTimeout(() => (message.value = null), 4000)
 }
 async function onRemove(id: string) {
-  store.remove(id)
+  const f = store.items.find(x => x.id === id)
   saving.value = true
+  if (f) {
+    // Keep removed filaments in history so an earlier-used one can be revisited.
+    history.archive(f)
+    await history.save()
+  }
+  store.remove(id)
   await store.save()
   saving.value = false
+}
+
+async function onRestore(entry: ArchivedFilament) {
+  const filament = history.takeForRestore(entry)
+  if (!filament) return
+  // Avoid an id clash if (somehow) the original id is back in active inventory.
+  if (store.items.some(x => x.id === filament.id)) {
+    filament.id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID()
+      : 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+  }
+  saving.value = true
+  store.add(filament)
+  await Promise.all([store.save(), history.save()])
+  saving.value = false
+  message.value = `Restored ${filament.brand} · ${filament.name}.`
+  setTimeout(() => (message.value = null), 4000)
 }
 
 function onImportResult(result: ImportResult) {
@@ -292,6 +319,14 @@ function onImportDone() {
           <template v-else>
             Refresh swatches ({{ greySwatchTargets.length }})
           </template>
+        </button>
+        <button
+          v-if="history.count > 0"
+          @click="showHistory = true"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
+          :title="`${history.count} removed filament${history.count === 1 ? '' : 's'} kept in history`"
+        >
+          <History :size="16" /> History ({{ history.count }})
         </button>
         <button
           @click="showDropZone = true"
@@ -401,6 +436,12 @@ function onImportDone() {
       :filament="detailing"
       @close="detailing = undefined"
       @edit="startEdit"
+    />
+
+    <FilamentHistory
+      v-if="showHistory"
+      @restore="onRestore"
+      @close="showHistory = false"
     />
 
     <OrderDropZone

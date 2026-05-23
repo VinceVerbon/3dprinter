@@ -4,9 +4,12 @@ import type { Filament } from '../types'
 import SwatchPreview from './SwatchPreview.vue'
 import RatingStars from './RatingStars.vue'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
+import { useAiSettings } from '../composables/useAiSettings'
 import { useFilamentsStore } from '../stores/filaments'
 import { ref } from 'vue'
 import { X, ExternalLink, Pencil, Sparkles } from 'lucide-vue-next'
+
+const { aiEnabled } = useAiSettings()
 
 const props = defineProps<{ filament: Filament }>()
 const emit = defineEmits<{ close: []; edit: [string] }>()
@@ -93,6 +96,16 @@ const tempRange = (r: [number, number] | null | undefined) =>
               <div class="text-xs text-slate-400">in use</div>
             </div>
           </div>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <div class="bg-slate-800/50 rounded px-3 py-2">
+              <div class="text-2xl font-semibold">{{ filament.inventory.on_spool ?? 0 }}</div>
+              <div class="text-xs text-slate-400">on spool</div>
+            </div>
+            <div class="bg-slate-800/50 rounded px-3 py-2">
+              <div class="text-2xl font-semibold">{{ filament.inventory.refill ?? 0 }}</div>
+              <div class="text-xs text-slate-400">refill</div>
+            </div>
+          </div>
           <p v-if="filament.spool_grams_total" class="text-xs text-slate-500 mt-2">
             {{ filament.spool_grams_total }} g per spool
           </p>
@@ -159,12 +172,14 @@ const tempRange = (r: [number, number] | null | undefined) =>
             <div class="flex items-center gap-2">
               <span v-if="savedNote" class="text-[10px] text-emerald-400">{{ savedNote }}</span>
               <button
+                v-if="aiEnabled"
                 @click="refreshAi"
                 :disabled="loading"
                 class="flex items-center gap-1.5 px-2 py-0.5 text-xs rounded bg-violet-700/40 border border-violet-600/60 text-violet-100 hover:bg-violet-700/60 disabled:opacity-40"
               >
                 <Sparkles :size="12" /> {{ loading ? 'Looking up…' : (ai ? 'Re-lookup' : 'Lookup AI') }}
               </button>
+              <span v-else class="text-[10px] text-slate-500">AI disabled</span>
             </div>
           </div>
           <p v-if="error" class="text-xs text-red-400 mb-2">{{ error }}</p>

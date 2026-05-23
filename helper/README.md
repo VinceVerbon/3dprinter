@@ -7,7 +7,7 @@ Local-only Node HTTP service for the 3dprinter PWA. Listens on `127.0.0.1:5174`.
 - **Serves** JSON files from `data/` (read-only over HTTP).
 - **Persists** writes from the PWA atomically (`tmp` + `rename`) with `data/<file>.json` pretty-printed for clean git diffs.
 - **Calls `claude`** (the locally installed CLI, OAuth via the user's Pro/Max subscription — no API key) to enrich filament metadata. Cached in `data/ai-cache.json` keyed by `brand|name` (lowercased, trimmed).
-- **Self-exits** when the PWA stops sending heartbeats. No tray icon, no zombie processes.
+- **Self-exits** when its owner is gone — tracks the vite process in dev, or (standalone) a generous heartbeat watchdog. No tray icon, no zombie processes.
 
 ## Run
 
@@ -37,8 +37,13 @@ In dev (`npm run dev` in `app/`), the Vite plugin spawns this helper as a child 
 |---|---|---|
 | `HELPER_PORT` | `5174` | Listen port (loopback only). |
 | `PROJECT_ROOT` | parent of `helper/` | Used to locate `data/`. |
-| `WATCHDOG_DISABLED` | unset | Set to `1` to disable the heartbeat watchdog (debugging). |
-| `VITE_PID` | unset | When set (numeric), helper sends `SIGTERM` to that PID before exiting. The Vite plugin in `app/vite.config.ts` populates this with `process.pid` so closing the PWA tears down the whole dev stack. Standalone helper leaves this unset and the kill is a no-op. |
+| `WATCHDOG_DISABLED` | unset | Set to `1` to disable both the vite-pid tracker and the heartbeat watchdog (debugging). |
+| `WATCHDOG_TIMEOUT_MS` | `600000` | Standalone-only heartbeat grace before self-exit (ignored when `VITE_PID` is set). |
+| `VITE_PID` | unset | When set (numeric), the helper tracks this PID for liveness (exits when it's gone) instead of using the heartbeat watchdog, and sends `SIGTERM` to it on its own `SIGINT`/`SIGTERM`. The Vite plugin in `app/vite.config.ts` populates it with `process.pid`. Standalone helper leaves this unset. |
+| `ANTHROPIC_API_KEY` | unset | Overrides the stored Anthropic key when `ai_provider` is `anthropic-api`. |
+| `OPENAI_API_KEY` | unset | Overrides the stored OpenAI key when `ai_provider` is `openai-api`. |
+| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | unset | Overrides the stored Gemini key when `ai_provider` is `gemini-api`. |
+| `OPENROUTER_API_KEY` | unset | Overrides the stored OpenRouter key when `ai_provider` is `openrouter-api`. |
 
 ## Endpoints
 
@@ -53,6 +58,19 @@ All responses are JSON. CORS is set to `http://127.0.0.1:5173` (the Vite dev ser
 | `POST` | `/lookup-filament` | `{ brand, name, force? }` | `{ ok, cached, result }` — see schema below |
 | `POST` | `/lookup-swatch` | `{ brand, name, variant?, sku?, color_code?, product_url?, force? }` | `{ ok, cached, result: { hex, stops[], effects[], source, confidence, notes? } }` — Bambu-prioritised, multicolor-aware |
 | `POST` | `/import-order` | `multipart/form-data` with `pdf` file + optional `filename` field | `{ ok, vendor_guess, order_ref, order_date, items[], total_eur, raw_text_preview }` — see flow below |
+| `POST` | `/ai-selftest` | `{ provider?, model?, api_key? }` (all optional — falls back to stored config) | `{ ok, provider, detail }`. Probes the chosen backend: `claude --version` for the CLI, a tiny ping for the selected API provider. Accepts an in-form key so the user can test before saving. The API key is never echoed back. |
+
+### AI provider
+
+All three lookups (`/lookup-filament`, `/lookup-swatch`, `/import-order`) route through a single dispatcher (`aiComplete` → `callProvider`) that reads `ai_provider` from `settings.json` (in `USER_DATA_DIR`) on every call:
+
+- **`claude-cli`** (default): shells out to the local `claude` CLI via `runClaude` (OAuth, no key). Swatch uses `WebFetch,Read`; order-import uses `Read` against the temp PDF path.
+- **`anthropic-api`**: direct REST to `api.anthropic.com/v1/messages`. Order-import attaches the PDF as a base64 `document` block.
+- **`openai-api`** / **`openrouter-api`**: OpenAI Chat Completions schema (`/chat/completions`); OpenRouter uses the same shape at `openrouter.ai/api/v1` plus `HTTP-Referer`/`X-Title` headers. Order-import attaches the PDF as a `file` content part (model must support PDF input).
+- **`gemini-api`**: `generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` with the key in the `x-goog-api-key` header. Order-import attaches the PDF as `inline_data`.
+- **`none`**: lookups return `409 { error: 'ai_disabled' }`; the UI hides every AI button.
+
+The API providers carry **no agentic tools** — enrichment is plain text and swatch resolves from training knowledge only (no live web; only the CLI fetches). Keys come from `{anthropic,openai,gemini,openrouter}_api_key` in settings, each overridable by its env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) / `OPENROUTER_API_KEY`), which wins. Per-task model comes from `ai_models.{enrichment,swatch,order_import}`, falling back to `ai_model` (Claude backends only), then a per-provider default. Missing key on an API path → `400 { error: 'no_api_key' }`. All API calls use `fetch` — no SDK dependency.
 
 ### `/data/<file>.json` filename rules
 
@@ -60,20 +78,15 @@ All responses are JSON. CORS is set to `http://127.0.0.1:5173` (the Vite dev ser
 - Write (`/save-data`): `^[a-z0-9-]+\.json$` (top-level only — catalog files are seed data, not user-writable).
 - Path traversal is rejected explicitly even if the regex slips.
 
-### Watchdog
+### Watchdog / lifecycle
 
-- Tick every 5 s.
-- If no `/heartbeat` for 45 s, log `"watchdog: no heartbeat for 45s, exiting"` and `process.exit(0)`.
-- `WATCHDOG_DISABLED=1` disables the timer entirely.
-- The PWA emits a heartbeat every 15 s while its window is open; closing the window stops the heartbeats and the helper exits within 45 s.
+The exit strategy depends on whether vite owns the helper:
 
-### Lifecycle (`VITE_PID` integration)
+- **Dev mode (`VITE_PID` set by `app/vite.config.ts`):** the heartbeat watchdog is **disabled**. Instead the helper polls `process.kill(VITE_PID, 0)` every 5 s and exits once vite is gone. This is deliberate: browsers throttle/freeze background-tab timers, so a heartbeat watchdog would kill the helper whenever the user alt-tabs away from the PWA for ~45 s — i.e. the app would die under an open window. Tracking the parent process means the helper lives for the whole dev session and the PWA tab can be backgrounded, closed, and reopened freely.
+- **Standalone (no `VITE_PID`):** falls back to a heartbeat watchdog, but with a generous **10 min** grace (`WATCHDOG_TIMEOUT_MS`, default `600000`) so ordinary backgrounding never reaps it. The PWA beats every 15 s and also on `visibilitychange`/`focus`.
+- `WATCHDOG_DISABLED=1` disables both mechanisms entirely (debugging).
 
-When the helper is spawned by the Vite dev plugin (`app/vite.config.ts`), Vite sets `VITE_PID=<vite-pid>` in the helper's environment. On every exit path — watchdog timeout, `SIGINT`, or `SIGTERM` — the helper sends `SIGTERM` to that PID before exiting itself. This means closing the PWA window:
-
-1. App stops emitting heartbeats.
-2. Helper watchdog fires after ~45 s, logs the exit, **kills Vite**, then exits.
-3. Vite's plugin teardown also kills the helper child if Vite is stopped first (e.g. `Ctrl+C`), preventing the helper from lingering 45 s waiting for heartbeats that won't come.
+On `SIGINT`/`SIGTERM` the helper still forwards `SIGTERM` to `VITE_PID` (if set) so stopping the helper tears down the whole dev stack; vite's plugin teardown does the reverse (kills the helper child when vite stops).
 
 Standalone runs (`node helper/index.mjs` without Vite) leave `VITE_PID` unset and the kill is a no-op — prior behavior is preserved exactly.
 
@@ -149,7 +162,7 @@ curl.exe -X POST -F "pdf=@receipt.pdf;type=application/pdf" -F "filename=receipt
 
 ## Watchdog test
 
-Start the helper without `WATCHDOG_DISABLED`. Wait ~50 s without sending a heartbeat. Helper logs `"watchdog: no heartbeat for 45s, exiting"` and the process exits with code 0.
+Standalone heartbeat path: start with `WATCHDOG_TIMEOUT_MS=3000` (and no `VITE_PID`), send no heartbeat, and the helper logs `"watchdog: no heartbeat for 3s, exiting"` and exits 0. Dev path: start with `VITE_PID=<some-live-pid>`, kill that pid, and the helper logs `"watchdog: vite pid=… is gone, exiting"` and exits 0.
 
 ## Why these design choices
 
@@ -157,4 +170,4 @@ Start the helper without `WATCHDOG_DISABLED`. Wait ~50 s without sending a heart
 - **Atomic writes** (`tmp` + `rename`). A crash mid-write leaves either the old file or the new file — never a half-written file the app can't parse.
 - **Pretty-printed JSON with trailing newline.** Diff-friendly when the user commits `data/` to git.
 - **Stdin-piped prompt.** The filament prompt contains `|` characters (TypeScript union types in the schema). Passing them as a positional CLI arg through cmd.exe corrupts the prompt; piping over stdin is robust on Windows, macOS, and Linux.
-- **Heartbeat-driven lifecycle.** Closing the PWA window is the user's "stop" signal — no separate process to manage. The watchdog ensures cleanup even if the app crashes.
+- **Owner-tracked lifecycle.** In dev the helper lives and dies with the vite process that spawned it — not with PWA heartbeats, which browsers throttle when the tab is backgrounded (that caused the helper to die under an open app, surfacing as "Failed to fetch" on AI calls). Standalone falls back to a generous heartbeat watchdog so an orphaned helper still self-cleans eventually.

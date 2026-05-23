@@ -13,7 +13,7 @@
       "effects": [],
       "source": "demo"
     },
-    "inventory": { "sealed": 1, "open": 0, "in_use": 0 },
+    "inventory": { "sealed": 1, "open": 0, "in_use": 0, "on_spool": 1, "refill": 0 },
     "spool_grams_total": 1000,
     "added_at": "2026-01-01",
     "ai": {
@@ -45,7 +45,7 @@
       "effects": ["translucent"],
       "source": "demo"
     },
-    "inventory": { "sealed": 0, "open": 1, "in_use": 0 },
+    "inventory": { "sealed": 0, "open": 1, "in_use": 0, "on_spool": 0, "refill": 1 },
     "spool_grams_total": 1000,
     "added_at": "2026-01-01",
     "ai": {

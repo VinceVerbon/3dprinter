@@ -6,7 +6,17 @@ import { loadData, saveData } from '../composables/useDataPersistence'
 const FILE = 'settings.json'
 const DEFAULT: AppSettings = {
   default_filament_brand: 'Bambu Lab',
+  ai_provider: 'claude-cli',
+  anthropic_api_key: '',
+  openai_api_key: '',
+  gemini_api_key: '',
+  openrouter_api_key: '',
   ai_model: 'claude-sonnet-4-6',
+  ai_models: {
+    enrichment: 'claude-sonnet-4-6',
+    swatch: 'claude-sonnet-4-6',
+    order_import: 'claude-sonnet-4-6',
+  },
   ai_lookup_enabled: true,
 }
 

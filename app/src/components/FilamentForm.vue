@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import type { Filament, Effect } from '../types'
 import GradientPicker from './GradientPicker.vue'
 import EffectsPicker from './EffectsPicker.vue'
 import RatingStars from './RatingStars.vue'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
+import { useAiSettings } from '../composables/useAiSettings'
 import { Sparkles } from 'lucide-vue-next'
+
+const { aiEnabled } = useAiSettings()
 
 const props = defineProps<{ initial?: Filament }>()
 const emit = defineEmits<{ submit: [Filament]; cancel: [] }>()
@@ -31,11 +34,24 @@ const form = reactive<Filament>(
         swatch: { hex: '#888888', stops: ['#888888'], effects: [], source: 'manual' },
         rating: undefined,
         notes: '',
-        inventory: { sealed: 1, open: 0, in_use: 0 },
+        inventory: { sealed: 1, open: 0, in_use: 0, on_spool: 1, refill: 0 },
         spool_grams_total: 1000,
         added_at: new Date().toISOString(),
       },
 )
+
+// Legacy records (pre-packaging-split) lack on_spool/refill — seed them so the
+// balance check starts satisfied (everything counted as on-spool by default).
+if (form.inventory.on_spool == null)
+  form.inventory.on_spool = (form.inventory.sealed || 0) + (form.inventory.open || 0) + (form.inventory.in_use || 0)
+if (form.inventory.refill == null) form.inventory.refill = 0
+
+// The packaging split (on_spool + refill) must equal the state split
+// (sealed + open + in_use). Both partition the same physical stock.
+const stateTotal = computed(() =>
+  (form.inventory.sealed || 0) + (form.inventory.open || 0) + (form.inventory.in_use || 0))
+const packagingTotal = computed(() => (form.inventory.on_spool || 0) + (form.inventory.refill || 0))
+const inventoryBalanced = computed(() => stateTotal.value === packagingTotal.value)
 
 const { lookup, loading, error } = useFilamentLookup()
 const lookupResult = ref<Filament['ai'] | null>(form.ai ?? null)
@@ -57,6 +73,7 @@ function syncStops() {
 }
 
 function onSubmit() {
+  if (!inventoryBalanced.value) return   // guard; Save button is also disabled
   syncStops()
   emit('submit', cloneJson(form))
 }
@@ -139,6 +156,39 @@ function onSubmit() {
       </div>
     </div>
 
+    <div class="grid gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-400">Packaging (on spool vs refill)</span>
+        <span
+          class="text-xs font-medium tabular-nums"
+          :class="inventoryBalanced ? 'text-emerald-400' : 'text-amber-400'"
+        >{{ packagingTotal }} / {{ stateTotal }} in stock</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="grid gap-1 text-xs">
+          <span class="text-slate-500">On spool</span>
+          <input
+            v-model.number="form.inventory.on_spool"
+            type="number"
+            min="0"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+        <label class="grid gap-1 text-xs">
+          <span class="text-slate-500">Refill (no spool)</span>
+          <input
+            v-model.number="form.inventory.refill"
+            type="number"
+            min="0"
+            class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-100"
+          />
+        </label>
+      </div>
+      <p v-if="!inventoryBalanced" class="text-xs text-amber-400">
+        On spool + refill ({{ packagingTotal }}) must equal sealed + open + in use ({{ stateTotal }}). Adjust the amounts before saving.
+      </p>
+    </div>
+
     <div class="grid grid-cols-2 gap-3">
       <label class="grid gap-1 text-sm">
         <span class="text-slate-400">Spool weight (g)</span>
@@ -170,6 +220,7 @@ function onSubmit() {
       <div class="flex items-center justify-between">
         <span class="text-sm text-slate-400">AI usage info</span>
         <button
+          v-if="aiEnabled"
           type="button"
           @click="runLookup(false)"
           :disabled="!form.brand || !form.name || loading"
@@ -177,6 +228,7 @@ function onSubmit() {
         >
           <Sparkles :size="14" /> {{ loading ? 'Looking up…' : (lookupResult ? 'Re-lookup' : 'Lookup AI') }}
         </button>
+        <span v-else class="text-xs text-slate-500">AI disabled in settings</span>
       </div>
       <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
       <div v-if="lookupResult" class="text-xs grid gap-1 text-slate-300">
@@ -208,7 +260,9 @@ function onSubmit() {
       >Cancel</button>
       <button
         type="submit"
-        class="px-3 py-1.5 text-sm rounded bg-sky-600 text-white hover:bg-sky-500"
+        :disabled="!inventoryBalanced"
+        :title="inventoryBalanced ? '' : 'On spool + refill must equal the total in stock'"
+        class="px-3 py-1.5 text-sm rounded bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed"
       >Save filament</button>
     </div>
   </form>

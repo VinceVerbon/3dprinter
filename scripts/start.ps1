@@ -4,9 +4,11 @@
 
 .DESCRIPTION
   Starts the helper service + Vite dev server (in dev mode) and opens the PWA in
-  Edge app-mode so it looks like an installed app. The helper has a heartbeat
-  watchdog — closing the Edge window stops heartbeats and the helper self-exits
-  within ~45 s.
+  Edge app-mode so it looks like an installed app. In dev mode the helper's
+  lifetime tracks the vite process (vite spawns and reaps it), so it stays alive
+  the whole session and exits when vite stops — closing just the Edge window no
+  longer kills it. (Standalone helper falls back to a generous heartbeat
+  watchdog.)
 
   Re-running this while the app is already up is a no-op (we detect a live
   helper at /healthz and skip).
@@ -122,8 +124,9 @@ else {
   Start-Process 'http://127.0.0.1:5173/'
 }
 
-# Exit. Helper + Vite continue in the background. Closing the Edge window stops
-# heartbeats; the helper auto-exits within ~45 s. Vite stays up until you stop
-# it explicitly (Ctrl-C in its console — but it's hidden, so use Task Manager
-# or the install-shortcut "Stop" action in v0.2).
+# Exit. Helper + Vite continue in the background. Closing just the Edge window
+# leaves both running (the helper is tied to vite's lifetime, not the PWA tab,
+# so AI lookups keep working when you reopen the window). To stop everything,
+# kill the hidden vite process (Task Manager, or the install-shortcut "Stop"
+# action) — the helper exits with it.
 exit 0

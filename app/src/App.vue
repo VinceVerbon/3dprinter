@@ -7,12 +7,22 @@ async function beat() {
     await fetch('/api/heartbeat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
   } catch { /* helper not running yet — ignore */ }
 }
+// Browsers throttle/freeze the interval while the window is hidden, so beat
+// immediately whenever it becomes visible again — keeps the standalone
+// heartbeat watchdog satisfied the moment the user returns to the app.
+function onVisible() {
+  if (document.visibilityState === 'visible') beat()
+}
 onMounted(() => {
   beat()
   heartbeatTimer = window.setInterval(beat, 15_000)
+  document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('focus', beat)
 })
 onBeforeUnmount(() => {
   if (heartbeatTimer != null) window.clearInterval(heartbeatTimer)
+  document.removeEventListener('visibilitychange', onVisible)
+  window.removeEventListener('focus', beat)
 })
 </script>
 

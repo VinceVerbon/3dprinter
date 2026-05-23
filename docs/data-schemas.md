@@ -40,8 +40,11 @@ User-managed filament inventory. One entry per distinct **product+color**, not p
   rating?: 1 | 2 | 3 | 4 | 5
   notes?: string
 
-  // inventory
-  inventory: { sealed: number; open: number; in_use: number }
+  // inventory — two partitions of the SAME total stock:
+  //   state:     sealed (off-shelf reserve) + open + in_use (loaded in AMS)
+  //   packaging: on_spool + refill
+  // INVARIANT: on_spool + refill === sealed + open + in_use (form refuses save otherwise)
+  inventory: { sealed: number; open: number; in_use: number; on_spool: number; refill: number }
   spool_grams_total?: number    // 1000 by default for Bambu refills
   spool_grams_remaining?: number
   purchased?: {
@@ -77,6 +80,20 @@ User-managed filament inventory. One entry per distinct **product+color**, not p
   annealable: boolean | null
 }
 ```
+
+---
+
+## `data/filament-history.json` — `ArchivedFilament[]`
+
+Filaments removed from active inventory, kept so an earlier-used one can be revisited or restored. Per-install (lives in `USER_DATA_DIR`, never seeded in the repo). Newest-first.
+
+```ts
+ArchivedFilament = Filament & {
+  removed_at: string   // ISO timestamp the filament was archived
+}
+```
+
+Written on remove (the full `Filament` record is cloned in, plus `removed_at`). Restore strips `removed_at` and re-adds to `filaments.json` (a fresh `id` is minted only if the original id is somehow back in active inventory). Hard-delete drops the entry permanently. Managed by `useFilamentHistoryStore` / `FilamentHistory.vue`.
 
 ---
 
