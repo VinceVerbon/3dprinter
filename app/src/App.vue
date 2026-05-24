@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { usePrintersStore } from './stores/printers'
+import { useSettingsStore } from './stores/settings'
+import AddPrinterPrompt from './components/AddPrinterPrompt.vue'
 
 let heartbeatTimer: number | null = null
 async function beat() {
@@ -13,11 +17,41 @@ async function beat() {
 function onVisible() {
   if (document.visibilityState === 'visible') beat()
 }
+
+// --- First-run "add a printer?" prompt -------------------------------------
+const router = useRouter()
+const printers = usePrintersStore()
+const settings = useSettingsStore()
+const dismissedThisSession = ref(false)
+
+const showPrinterPrompt = computed(() =>
+  printers.loaded && settings.loaded
+  && printers.hasNone
+  && !settings.settings.printer_prompt_dismissed
+  && !dismissedThisSession.value,
+)
+
+function promptAdd() {
+  dismissedThisSession.value = true
+  router.push('/printers?add=1')
+}
+function promptLater() {
+  dismissedThisSession.value = true
+}
+async function promptNever() {
+  settings.settings.printer_prompt_dismissed = true
+  dismissedThisSession.value = true
+  await settings.save()
+}
+
 onMounted(() => {
   beat()
   heartbeatTimer = window.setInterval(beat, 15_000)
   document.addEventListener('visibilitychange', onVisible)
   window.addEventListener('focus', beat)
+  // Drive the first-run prompt — needs printers + settings loaded.
+  printers.load()
+  settings.load()
 })
 onBeforeUnmount(() => {
   if (heartbeatTimer != null) window.clearInterval(heartbeatTimer)
@@ -39,6 +73,7 @@ onBeforeUnmount(() => {
         <RouterLink to="/accessories" class="hover:text-sky-400">Accessories</RouterLink>
         <RouterLink to="/shopping" class="hover:text-sky-400">Shopping</RouterLink>
         <RouterLink to="/empty-spools" class="hover:text-sky-400">Empty spools</RouterLink>
+        <RouterLink to="/printers" class="hover:text-sky-400">Printers</RouterLink>
         <RouterLink to="/labels" class="hover:text-sky-400">Labels</RouterLink>
         <RouterLink to="/settings" class="hover:text-sky-400">Settings</RouterLink>
       </nav>
@@ -46,5 +81,12 @@ onBeforeUnmount(() => {
     <main class="p-6">
       <RouterView />
     </main>
+
+    <AddPrinterPrompt
+      v-if="showPrinterPrompt"
+      @add="promptAdd"
+      @later="promptLater"
+      @never="promptNever"
+    />
   </div>
 </template>

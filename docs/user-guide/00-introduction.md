@@ -1,10 +1,11 @@
 # Welcome to Haspel
 
-**Haspel** is a personal supplies database for 3D printing, built around the
-**Bambu Lab P2S Combo with the AMS 2 Pro**. It keeps track of everything you buy
-and use to keep the printer running — filament spools, replacement parts,
-consumables, and empty spools — so you always know what you have, what it's good
-for, and what you need to reorder.
+**Haspel** is a personal supplies database for 3D printing. It started around the
+**Bambu Lab P2S + AMS 2 Pro** but now works with **any FDM printer you add**. It
+keeps track of everything you buy and use to keep your printers running — filament
+spools, replacement parts, consumables, empty spools, and the printers themselves
+— so you always know what you have, what it's good for, and what you need to
+reorder.
 
 It runs as a small app on your own PC. Your data lives locally on your machine;
 nothing is uploaded to a cloud service.
@@ -27,6 +28,9 @@ nothing is uploaded to a cloud service.
 - **Keep a shopping list** you can build from a built-in catalog of P2S parts and
   consumables, total it up, and print or save it as a PDF to take to the shop.
 - **Count your empty spools** so you know how many you can reuse for refills.
+- **Track the printers you own** — each with a spec sheet (build volume, temps,
+  nozzle options, AMS, common accessories) prefilled from a built-in 65-model
+  catalog. Haspel uses this to tailor labels and compatibility to your hardware.
 
 ## A few key ideas
 

@@ -6,6 +6,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/accessories', component: () => import('../pages/AccessoriesPage.vue') },
   { path: '/shopping', component: () => import('../pages/ShoppingPage.vue') },
   { path: '/empty-spools', component: () => import('../pages/EmptySpoolsPage.vue') },
+  { path: '/printers', component: () => import('../pages/PrintersPage.vue') },
   { path: '/labels', component: () => import('../pages/LabelsPage.vue') },
   { path: '/labels/logos', component: () => import('../pages/BrandLogosPage.vue') },
   { path: '/settings', component: () => import('../pages/SettingsPage.vue') },

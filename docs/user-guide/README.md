@@ -25,7 +25,8 @@ need:
 | `09-empty-spools.md` | The empty-spool counter |
 | `10-filament-history.md` | The archive of removed filaments and how to restore them |
 | `11-settings.md` | Full settings reference |
-| `12-troubleshooting.md` | Common problems and fixes |
+| `12-printers.md` | Adding and managing your printers + spec sheets |
+| `13-troubleshooting.md` | Common problems and fixes |
 
 ## Building the PDF
 

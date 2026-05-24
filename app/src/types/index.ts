@@ -145,6 +145,9 @@ export interface AppSettings {
   /** Legacy/global default model. Retained for back-compat with older settings. */
   ai_model?: string          // claude-sonnet-4-6 default
   ai_lookup_enabled?: boolean
+  /** When true, the first-run "add a printer?" prompt is suppressed on startup
+   *  (user ticked "don't ask again"). */
+  printer_prompt_dismissed?: boolean
 }
 
 export interface CatalogReplacementPart {
@@ -168,4 +171,56 @@ export interface CatalogConsumable {
   suggested_brands?: string[]
   notes?: string
   source_url?: string
+}
+
+// ---------------------------------------------------------------------------
+// Printers — user-configured machines + a read-only seed of known models.
+// ---------------------------------------------------------------------------
+
+export type PrinterTechnology = 'FDM' | 'resin' | 'other'
+
+/** AMS / multi-material capability of a printer. `type: 'none'` = no AMS. */
+export interface PrinterAms {
+  type: string                 // e.g. "AMS 2 Pro", "AMS", "AMS lite", "AMS HT", "none"
+  slots?: number | null        // filament slots per unit (e.g. 4)
+  max_units?: number | null    // how many units can be chained
+}
+
+export interface PrinterSpec {
+  build_volume_mm?: { x: number; y: number; z: number } | null  // z is the build height
+  max_build_height_mm?: number | null     // usually build_volume.z; kept explicit
+  max_hotend_temp_c?: number | null        // max standard extruder/hotend temperature
+  max_bed_temp_c?: number | null
+  enclosed?: boolean | null
+  chamber_heated?: boolean | null
+  filament_diameter_mm?: number | null     // 1.75 typical
+  default_nozzle_mm?: number | null
+  nozzle_options_mm?: number[]             // e.g. [0.2, 0.4, 0.6, 0.8]
+  ams?: PrinterAms | null
+  common_accessories?: string[]            // e.g. ["Hardened nozzle", "Textured PEI plate"]
+}
+
+export interface Printer {
+  id: string
+  brand: string
+  model: string
+  nickname?: string            // user label, e.g. "Workshop P2S"
+  technology?: PrinterTechnology
+  spec: PrinterSpec
+  detail_url?: string          // brand/model detail page
+  store_url?: string           // brand store page
+  notes?: string
+  is_active?: boolean          // the "active" printer for filtering/defaults
+  added_at: string             // ISO date
+}
+
+/** Read-only seed of known printer models, for prefilling the add-printer form.
+ *  Lives at data/catalog/printers.json. */
+export interface CatalogPrinter {
+  brand: string
+  model: string
+  technology?: PrinterTechnology
+  spec: PrinterSpec
+  detail_url?: string
+  store_url?: string
 }

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { CatalogReplacementPart, CatalogConsumable } from '../types'
+import type { CatalogReplacementPart, CatalogConsumable, CatalogPrinter } from '../types'
 import { loadData } from '../composables/useDataPersistence'
 
 /**
@@ -10,16 +10,19 @@ import { loadData } from '../composables/useDataPersistence'
 export const useCatalogStore = defineStore('catalog', () => {
   const parts = ref<CatalogReplacementPart[]>([])
   const consumables = ref<CatalogConsumable[]>([])
+  const printers = ref<CatalogPrinter[]>([])
   const loaded = ref(false)
 
   async function load() {
     if (loaded.value) return
-    const [p, c] = await Promise.all([
+    const [p, c, pr] = await Promise.all([
       loadData<CatalogReplacementPart[]>('catalog/replacement-parts.json', []),
       loadData<CatalogConsumable[]>('catalog/consumables.json', []),
+      loadData<CatalogPrinter[]>('catalog/printers.json', []),
     ])
     parts.value = p
     consumables.value = c
+    printers.value = Array.isArray(pr) ? pr : []
     loaded.value = true
   }
 
@@ -34,5 +37,5 @@ export const useCatalogStore = defineStore('catalog', () => {
     return m
   })
 
-  return { parts, consumables, loaded, partsByCategory, consumablesByCategory, load }
+  return { parts, consumables, printers, loaded, partsByCategory, consumablesByCategory, load }
 })

@@ -147,6 +147,40 @@ User-managed accessory inventory.
 
 ---
 
+## `data/printers.json` — `Printer[]`
+
+User-configured 3D printers (per-install; lives under `%APPDATA%\Haspel\data` etc., not committed). Drives the first-run "add a printer?" prompt and AMS-aware UI.
+
+```ts
+{
+  id: string                    // uuid
+  brand: string                 // "Bambu Lab", "Original Prusa", ...
+  model: string                 // exact model, e.g. "P2S"
+  nickname?: string             // user label, e.g. "Workshop P2S"
+  technology?: 'FDM' | 'resin' | 'other'
+  spec: {
+    build_volume_mm?: { x: number; y: number; z: number } | null   // z = build height
+    max_build_height_mm?: number | null
+    max_hotend_temp_c?: number | null     // max standard/stock hotend temperature
+    max_bed_temp_c?: number | null
+    enclosed?: boolean | null
+    chamber_heated?: boolean | null        // active chamber heater (not just a passive enclosure)
+    filament_diameter_mm?: number | null   // 1.75 typical
+    default_nozzle_mm?: number | null
+    nozzle_options_mm?: number[]
+    ams?: { type: string; slots?: number | null; max_units?: number | null } | null  // type "none" = no AMS
+    common_accessories?: string[]
+  }
+  detail_url?: string           // brand/model detail page
+  store_url?: string            // brand store page
+  notes?: string
+  is_active?: boolean           // the active printer (filtering/defaults); first one added defaults to true
+  added_at: string              // ISO date
+}
+```
+
+---
+
 ## `data/ai-cache.json` — `AiCache`
 
 Helper-managed. Keys are `${brand}|${name}` lowercased + trimmed.
@@ -212,6 +246,25 @@ Reference list of common 3D-printing consumables (adhesion, drying, cleaning, ma
   source_url?: string           // optional; biased toward NL/EU retailers
 }
 ```
+
+---
+
+## `data/catalog/printers.json` — `CatalogPrinter[]` (read-only seed)
+
+Known printer models, used to prefill the add-printer form (the spec fields auto-fill, then the user can edit). Same `spec` shape as `Printer.spec` above, minus the user fields (`id`, `nickname`, `is_active`, `notes`, `added_at`).
+
+```ts
+{
+  brand: string
+  model: string
+  technology?: 'FDM' | 'resin' | 'other'
+  spec: PrinterSpec             // identical shape to Printer.spec
+  detail_url?: string
+  store_url?: string
+}
+```
+
+Seeded with 12 models (Bambu Lab P2S / X1 Carbon / P1S / A1 / A1 mini / H2D, Original Prusa MK4S / CORE One, Voron 2.4, Creality K1 Max / K2 Plus, Elegoo Centauri Carbon), specs verified against official manufacturer sources. `null` where a model has no single stock value (e.g. Voron hotend/bed max).
 
 ---
 

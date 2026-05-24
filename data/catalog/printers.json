@@ -1,0 +1,1302 @@
+[
+  {
+    "brand": "Bambu Lab",
+    "model": "P2S",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS 2 Pro", "slots": 4, "max_units": 8 },
+      "common_accessories": ["Hardened steel nozzle", "Textured PEI plate", "Spare hotend assembly", "Activated carbon filter", "External Exhaust Fan Kit", "Auxiliary part cooling fan"]
+    },
+    "detail_url": "https://bambulab.com/en/p2s",
+    "store_url": "https://us.store.bambulab.com/products/p2s"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "X1 Carbon",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS / AMS 2 Pro", "slots": 4, "max_units": 4 },
+      "common_accessories": ["Bambu AMS", "AMS 2 Pro", "Hardened steel nozzle", "Engineering plate", "Textured PEI plate", "Smooth PEI plate"]
+    },
+    "detail_url": "https://bambulab.com/en-us/x1",
+    "store_url": "https://us.store.bambulab.com/products/bambu-lab-x1-carbon"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "X1E",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 320,
+      "max_bed_temp_c": 110,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS / AMS 2 Pro", "slots": 4, "max_units": 4 },
+      "common_accessories": ["Bambu AMS", "AMS 2 Pro", "Hardened steel nozzle", "HEPA filtration kit", "Engineering plate"]
+    },
+    "detail_url": "https://bambulab.com/en-us/x1e",
+    "store_url": "https://us.store.bambulab.com/products/x1e"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "P1P",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS / AMS 2 Pro", "slots": 4, "max_units": 4 },
+      "common_accessories": ["Bambu AMS", "AMS 2 Pro", "Hardened steel nozzle", "Enclosure kit"]
+    },
+    "detail_url": "https://bambulab.com/en-us/p1",
+    "store_url": "https://us.store.bambulab.com/products/p1p"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "P1S",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS / AMS 2 Pro", "slots": 4, "max_units": 4 },
+      "common_accessories": ["Bambu AMS", "AMS 2 Pro", "Hardened steel nozzle", "Engineering plate", "Activated carbon filter"]
+    },
+    "detail_url": "https://bambulab.com/en-us/p1",
+    "store_url": "https://us.store.bambulab.com/products/p1s"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "A1",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS lite", "slots": 4, "max_units": 1 },
+      "common_accessories": ["AMS lite", "Textured PEI plate", "Cool Plate SuperTack", "Hardened steel nozzle"]
+    },
+    "detail_url": "https://bambulab.com/en/a1",
+    "store_url": "https://us.store.bambulab.com/products/a1"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "A1 mini",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 180, "y": 180, "z": 180 },
+      "max_build_height_mm": 180,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 80,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS lite", "slots": 4, "max_units": 1 },
+      "common_accessories": ["AMS lite", "Textured PEI plate", "Cool Plate SuperTack"]
+    },
+    "detail_url": "https://bambulab.com/en/a1-mini",
+    "store_url": "https://us.store.bambulab.com/products/a1-mini"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "H2D",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 325, "y": 320, "z": 325 },
+      "max_build_height_mm": 325,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS 2 Pro / AMS HT", "slots": 4, "max_units": 12 },
+      "common_accessories": ["AMS 2 Pro", "AMS HT", "Tungsten carbide nozzle", "Engineering plate", "4-in-1 PTFE adapter"]
+    },
+    "detail_url": "https://bambulab.com/en/h2d",
+    "store_url": "https://us.store.bambulab.com/products/h2d"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "H2D Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 325, "y": 320, "z": 325 },
+      "max_build_height_mm": 325,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS 2 Pro / AMS HT", "slots": 4, "max_units": 12 },
+      "common_accessories": ["AMS 2 Pro", "AMS HT", "Tungsten carbide nozzle (included)", "Engineering plate", "4-in-1 PTFE adapter"]
+    },
+    "detail_url": "https://bambulab.com/en-us/h2d-pro",
+    "store_url": "https://us.store.bambulab.com/products/h2d-pro"
+  },
+  {
+    "brand": "Bambu Lab",
+    "model": "H2S",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 340, "y": 320, "z": 340 },
+      "max_build_height_mm": 340,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "AMS 2 Pro / AMS HT", "slots": 4, "max_units": 12 },
+      "common_accessories": ["AMS 2 Pro", "AMS HT", "Tungsten carbide nozzle", "Engineering plate"]
+    },
+    "detail_url": "https://bambulab.com/en-us/h2s",
+    "store_url": "https://us.store.bambulab.com/products/h2s"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "MK4S",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 210, "z": 220 },
+      "max_build_height_mm": 220,
+      "max_hotend_temp_c": 290,
+      "max_bed_temp_c": 120,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4],
+      "ams": { "type": "MMU3", "slots": 5, "max_units": 1 },
+      "common_accessories": ["MMU3 multi-material upgrade", "Enclosure", "Spare high-flow nozzle", "Spring steel sheets"]
+    },
+    "detail_url": "https://www.prusa3d.com/product/original-prusa-mk4s-3d-printer-5/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "MK4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 210, "z": 220 },
+      "max_build_height_mm": 220,
+      "max_hotend_temp_c": 290,
+      "max_bed_temp_c": 120,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4],
+      "ams": { "type": "MMU3", "slots": 5, "max_units": 1 },
+      "common_accessories": ["MMU3 multi-material upgrade", "Enclosure", "Spring steel sheets"]
+    },
+    "detail_url": "https://www.prusa3d.com/product/original-prusa-mk4-2/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "MK3S+",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 210, "z": 210 },
+      "max_build_height_mm": 210,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 120,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6],
+      "ams": { "type": "MMU3", "slots": 5, "max_units": 1 },
+      "common_accessories": ["MMU3 multi-material upgrade", "Enclosure", "Spring steel sheets"]
+    },
+    "detail_url": "https://www.prusa3d.com/category/original-prusa-i3-mk3s/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "MINI+",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 180, "y": 180, "z": 180 },
+      "max_build_height_mm": 180,
+      "max_hotend_temp_c": 280,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Enclosure", "Spring steel sheets", "0.25mm nozzle"]
+    },
+    "detail_url": "https://www.prusa3d.com/category/original-prusa-mini/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "CORE One",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 220, "z": 270 },
+      "max_build_height_mm": 270,
+      "max_hotend_temp_c": 290,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "MMU3", "slots": 5, "max_units": 1 },
+      "common_accessories": ["MMU3 multi-material upgrade", "HT Hotend (400C) upgrade", "Camera", "Advanced filtration"]
+    },
+    "detail_url": "https://www.prusa3d.com/product/prusa-core-one/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "XL (single toolhead)",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 360, "y": 360, "z": 360 },
+      "max_build_height_mm": 360,
+      "max_hotend_temp_c": 290,
+      "max_bed_temp_c": 120,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Enclosure", "Additional toolheads (upgradeable to 5)", "Segmented heatbed", "Spring steel sheets"]
+    },
+    "detail_url": "https://www.prusa3d.com/product/original-prusa-xl-assembled-single-toolhead-3d-printer/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Original Prusa",
+    "model": "XL (5 toolheads)",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 360, "y": 360, "z": 360 },
+      "max_build_height_mm": 360,
+      "max_hotend_temp_c": 290,
+      "max_bed_temp_c": 120,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "Tool changer", "slots": 5, "max_units": 1 },
+      "common_accessories": ["Enclosure", "Segmented heatbed", "Spring steel sheets", "Spare toolheads"]
+    },
+    "detail_url": "https://www.prusa3d.com/product/original-prusa-xl-semi-assembled-5-toolhead-3d-printer/",
+    "store_url": "https://www.prusa3d.com/"
+  },
+  {
+    "brand": "Creality",
+    "model": "Ender-3 V3",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Quick-swap hardened steel nozzle", "PEI flexible build plate"]
+    },
+    "detail_url": "https://www.creality.com/products/creality-ender-3-v3",
+    "store_url": "https://store.creality.com/products/ender-3-v3-corexz-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "Ender-3 V3 SE",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Sprite direct extruder", "PC spring steel build plate"]
+    },
+    "detail_url": "https://store.creality.com/products/ender-3-v3-se-3d-printer",
+    "store_url": "https://store.creality.com/products/ender-3-v3-se-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "Ender-3 V3 KE",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 240 },
+      "max_build_height_mm": 240,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Sprite direct drive extruder", "PEI flexible build plate"]
+    },
+    "detail_url": "https://store.creality.com/products/ender-3-v3-ke-3d-printer",
+    "store_url": "https://store.creality.com/products/ender-3-v3-ke-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "Ender-3 S1 Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 270 },
+      "max_build_height_mm": 270,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Sprite full-metal direct dual-gear extruder", "PEI spring steel build plate"]
+    },
+    "detail_url": "https://www.creality.com/products/creality-ender-3-s1-pro-fdm-3d-printer",
+    "store_url": "https://store.creality.com/products/ender-3-s1-pro-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "Ender-5 S1",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 280 },
+      "max_build_height_mm": 280,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Sprite direct drive extruder", "All-metal cube frame", "Optional acrylic enclosure"]
+    },
+    "detail_url": "https://www.creality.com/products/ender-5-s1-3d-printer",
+    "store_url": "https://store.creality.com/products/ender-5-s1-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "CR-10 SE",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 265 },
+      "max_build_height_mm": 265,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Hardened steel nozzle", "Flexible build plate", "Optional AI LiDAR / AI camera / enclosure"]
+    },
+    "detail_url": "https://store.creality.com/products/cr-10-se-3d-printer",
+    "store_url": "https://store.creality.com/products/cr-10-se-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "K1",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "CFS", "slots": 4 },
+      "common_accessories": ["Flexible build plate", "K1 Series CFS upgrade kit (optional)"]
+    },
+    "detail_url": "https://www.creality.com/products/k1-3d-printer",
+    "store_url": "https://store.creality.com/products/k1-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "K1C",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "CFS", "slots": 4 },
+      "common_accessories": ["Clog-free tri-metal nozzle direct drive extruder", "PEI flexible build plate", "Air purifier", "K1 Series CFS upgrade kit (optional)"]
+    },
+    "detail_url": "https://www.creality.com/products/k1c-carbon-3d-printer",
+    "store_url": "https://store.creality.com/products/k1c-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "K1 SE",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "CFS", "slots": 4 },
+      "common_accessories": ["Dual-gear direct drive extruder", "Flexible build plate", "K1 Series CFS upgrade kit (optional)"]
+    },
+    "detail_url": "https://www.creality.com/products/creality-k1-se-3d-printer",
+    "store_url": "https://store.creality.com/products/k1-se-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "K1 Max",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 300, "y": 300, "z": 300 },
+      "max_build_height_mm": 300,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "CFS", "slots": 4 },
+      "common_accessories": ["AI camera", "AI LiDAR", "Flexible build plate", "K1 Series CFS upgrade kit (optional)"]
+    },
+    "detail_url": "https://www.creality.com/products/creality-k1-max-3d-printer",
+    "store_url": "https://store.creality.com/products/k1-max-3d-printer"
+  },
+  {
+    "brand": "Creality",
+    "model": "K2 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 350, "y": 350, "z": 350 },
+      "max_build_height_mm": 350,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "CFS", "slots": 4, "max_units": 4 },
+      "common_accessories": ["Apus extruder kit (filament cutter, run-out sensor, tri-metal nozzle)", "Flexible build plate", "Dual AI cameras", "Active chamber heater"]
+    },
+    "detail_url": "https://www.creality.com/products/creality-k2-plus-cfs-combo",
+    "store_url": "https://store.creality.com/products/creality-k2-plus-combo-3d-printer"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 2",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "PEI spring steel build plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-2",
+    "store_url": "https://store.anycubic.com/products/kobra-2"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 2 Neo",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-2-neo",
+    "store_url": "https://store.anycubic.com/products/kobra-2-neo"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 2 Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-2-pro",
+    "store_url": "https://store.anycubic.com/products/kobra-2-pro"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 2 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 320, "y": 320, "z": 400 },
+      "max_build_height_mm": 400,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 90,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-2-plus",
+    "store_url": "https://store.anycubic.com/products/kobra-2-plus"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 2 Max",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 420, "y": 420, "z": 500 },
+      "max_build_height_mm": 500,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 90,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-2-max",
+    "store_url": "https://store.anycubic.com/products/kobra-2-max"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 3",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 250, "z": 260 },
+      "max_build_height_mm": 260,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "ACE Pro", "slots": 4, "max_units": 2 },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate", "ACE Pro multi-color/drying unit (Combo)"]
+    },
+    "detail_url": "https://store.anycubic.com/products/anycubic-kobra-3",
+    "store_url": "https://store.anycubic.com/products/kobra-3-combo"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra 3 Max",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 420, "y": 420, "z": 500 },
+      "max_build_height_mm": 500,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 90,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "ACE Pro", "slots": 4, "max_units": 2 },
+      "common_accessories": ["0.4mm brass nozzle (replaceable)", "Spring steel PEI build plate", "ACE Pro multi-color/drying unit (Combo)"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-3-max",
+    "store_url": "https://store.anycubic.com/products/kobra-3-max-combo"
+  },
+  {
+    "brand": "Anycubic",
+    "model": "Kobra S1",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 250, "y": 250, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 320,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "ACE Pro", "slots": 4, "max_units": 2 },
+      "common_accessories": ["0.4mm hardened nozzle (replaceable)", "Spring steel PEI build plate", "ACE Pro multi-color/drying unit (Combo)"]
+    },
+    "detail_url": "https://store.anycubic.com/products/kobra-s1",
+    "store_url": "https://store.anycubic.com/products/kobra-s1-combo"
+  },
+  {
+    "brand": "Elegoo",
+    "model": "Neptune 4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 225, "y": 225, "z": 265 },
+      "max_build_height_mm": 265,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": null,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8, 1.0],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle", "PEI spring steel build plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://us.elegoo.com/products/elegoo-neptune-4-fdm-3d-printer",
+    "store_url": "https://us.elegoo.com/products/elegoo-neptune-4-fdm-3d-printer"
+  },
+  {
+    "brand": "Elegoo",
+    "model": "Neptune 4 Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 225, "y": 225, "z": 265 },
+      "max_build_height_mm": 265,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": null,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8, 1.0],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle", "Dual-sided PEI spring steel plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://us.elegoo.com/products/elegoo-neptune-4-pro-fdm-3d-printer",
+    "store_url": "https://us.elegoo.com/products/elegoo-neptune-4-pro-fdm-3d-printer"
+  },
+  {
+    "brand": "Elegoo",
+    "model": "Neptune 4 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 320, "y": 320, "z": 385 },
+      "max_build_height_mm": 385,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": null,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8, 1.0],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle", "PEI spring steel build plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://us.elegoo.com/products/neptune-4-plus-fdm-3d-printer",
+    "store_url": "https://us.elegoo.com/products/neptune-4-plus-fdm-3d-printer"
+  },
+  {
+    "brand": "Elegoo",
+    "model": "Neptune 4 Max",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 420, "y": 420, "z": 480 },
+      "max_build_height_mm": 480,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": null,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8, 1.0],
+      "ams": { "type": "none" },
+      "common_accessories": ["0.4mm brass nozzle", "PEI spring steel build plate", "Filament runout sensor"]
+    },
+    "detail_url": "https://us.elegoo.com/products/neptune-4-max-fdm-3d-printer",
+    "store_url": "https://us.elegoo.com/products/neptune-4-max-fdm-3d-printer"
+  },
+  {
+    "brand": "Elegoo",
+    "model": "Centauri Carbon",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 256, "y": 256, "z": 256 },
+      "max_build_height_mm": 256,
+      "max_hotend_temp_c": 320,
+      "max_bed_temp_c": 110,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Hardened steel nozzle", "PEI spring steel build plate", "Chamber camera", "Built-in filament cutter", "Air filtration"]
+    },
+    "detail_url": "https://us.elegoo.com/products/centauri-carbon",
+    "store_url": "https://us.elegoo.com/products/centauri-carbon"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "Adventurer 5M",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 220 },
+      "max_build_height_mm": 220,
+      "max_hotend_temp_c": 280,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Enclosure Kit", "Nozzle assembly", "PEI textured build plate", "Camera kit"]
+    },
+    "detail_url": "https://www.flashforge.com/products/adventurer-5m-3d-printer",
+    "store_url": "https://www.flashforge.com/products/adventurer-5m-3d-printer"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "Adventurer 5M Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 220 },
+      "max_build_height_mm": 220,
+      "max_hotend_temp_c": 280,
+      "max_bed_temp_c": 100,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Nozzle assembly", "PEI textured build plate", "Camera kit", "Air filter"]
+    },
+    "detail_url": "https://www.flashforge.com/products/adventurer-5m-pro-3d-printer",
+    "store_url": "https://www.flashforge.com/products/adventurer-5m-pro-3d-printer"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "AD5X",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 220 },
+      "max_build_height_mm": 220,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 110,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "IFS", "slots": 4 },
+      "common_accessories": ["IFS multi-color system", "Enclosure kit", "Nozzle assembly", "PEI textured build plate", "Camera kit"]
+    },
+    "detail_url": "https://www.flashforge.com/products/flashforge-ad5x-3d-printer",
+    "store_url": "https://www.flashforge.com/products/flashforge-ad5x-3d-printer"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "Adventurer 4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 200, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 265,
+      "max_bed_temp_c": 110,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.3, 0.4, 0.6],
+      "ams": { "type": "none" },
+      "common_accessories": ["Nozzle kit", "Removable build plate", "Air filter", "Camera"]
+    },
+    "detail_url": "https://www.flashforge.com/product-detail/flashforge-adventurer-4-3d-printer",
+    "store_url": "https://www.flashforge.com/"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "Creator 4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 400, "y": 350, "z": 500 },
+      "max_build_height_mm": 500,
+      "max_hotend_temp_c": 360,
+      "max_bed_temp_c": 130,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Extruder-HT (320C)", "Extruder-HS (360C)", "Build plate", "Air filter"]
+    },
+    "detail_url": "https://enterprise.flashforge.com/pages/creator-4-3d-printer",
+    "store_url": "https://enterprise.flashforge.com/pages/creator-4-3d-printer"
+  },
+  {
+    "brand": "FlashForge",
+    "model": "Guider 3 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 350, "y": 350, "z": 600 },
+      "max_build_height_mm": 600,
+      "max_hotend_temp_c": 320,
+      "max_bed_temp_c": null,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6],
+      "ams": { "type": "none" },
+      "common_accessories": ["Nozzle assembly", "Build plate", "Air filter"]
+    },
+    "detail_url": "https://flashforge-usa.com/products/flashforge-guider-3-plus-3d-printer",
+    "store_url": "https://flashforge-usa.com/products/flashforge-guider-3-plus-3d-printer"
+  },
+  {
+    "brand": "Sovol",
+    "model": "SV06",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Brass nozzle kit", "Hardened steel nozzle kit", "PEI textured build plate"]
+    },
+    "detail_url": "https://www.sovol3d.com/products/sovol-sv06-best-budget-3d-printer-for-beginner",
+    "store_url": "https://www.sovol3d.com/products/sovol-sv06-best-budget-3d-printer-for-beginner"
+  },
+  {
+    "brand": "Sovol",
+    "model": "SV06 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 300, "y": 300, "z": 350 },
+      "max_build_height_mm": 350,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["High-flow brass nozzles", "Hardened tool steel nozzles", "PEI textured build plate"]
+    },
+    "detail_url": "https://www.sovol3d.com/products/sovol-sv06-plus-fully-open-source-3d-printer-with-linear-rail-structure",
+    "store_url": "https://www.sovol3d.com/products/sovol-sv06-plus-fully-open-source-3d-printer-with-linear-rail-structure"
+  },
+  {
+    "brand": "Sovol",
+    "model": "SV07",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["High-flow brass nozzles", "Hardened steel nozzles", "Magnetic PEI textured build plate"]
+    },
+    "detail_url": "https://www.sovol3d.com/products/sovol-sv07-klipper-direct-drive-3d-printer-print-speed-250mm-s",
+    "store_url": "https://www.sovol3d.com/products/sovol-sv07-klipper-direct-drive-3d-printer-print-speed-250mm-s"
+  },
+  {
+    "brand": "Sovol",
+    "model": "SV07 Plus",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 300, "y": 300, "z": 350 },
+      "max_build_height_mm": 350,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["High-flow brass nozzles", "Hardened steel nozzles", "Magnetic PEI textured build plate"]
+    },
+    "detail_url": "https://www.sovol3d.com/products/sovol-sv07-plus-large-klipper-3d-printer",
+    "store_url": "https://www.sovol3d.com/products/sovol-sv07-plus-large-klipper-3d-printer"
+  },
+  {
+    "brand": "Sovol",
+    "model": "SV08",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 350, "y": 350, "z": 345 },
+      "max_build_height_mm": 345,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Brass nozzle kit", "Hardened steel nozzles", "PEI textured build plate"]
+    },
+    "detail_url": "https://www.sovol3d.com/products/sovol-sv08-3d-printer",
+    "store_url": "https://www.sovol3d.com/products/sovol-sv08-3d-printer"
+  },
+  {
+    "brand": "QIDI",
+    "model": "X-Plus 3",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 280, "y": 280, "z": 270 },
+      "max_build_height_mm": 270,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Copper-plated nozzle", "Hardened steel nozzle", "Bimetal nozzles", "PEI build plate"]
+    },
+    "detail_url": "https://qidi3d.com/pages/x-plus3",
+    "store_url": "https://us.qidi3d.com/pages/x-plus3"
+  },
+  {
+    "brand": "QIDI",
+    "model": "X-Max 3",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 325, "y": 325, "z": 315 },
+      "max_build_height_mm": 315,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Copper-plated nozzle", "Hardened steel nozzle", "Bimetal nozzles", "PEI build plate", "Activated carbon air filter"]
+    },
+    "detail_url": "https://qidi3d.com/pages/x-max3",
+    "store_url": "https://us.qidi3d.com/products/qidi-x-max-3"
+  },
+  {
+    "brand": "QIDI",
+    "model": "Q1 Pro",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 245, "y": 245, "z": 240 },
+      "max_build_height_mm": 240,
+      "max_hotend_temp_c": 350,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Copper-plated nozzle", "Hardened steel nozzle", "Bimetal nozzles", "Hardened steel dual-gear extruder", "PEI build plate"]
+    },
+    "detail_url": "https://us.qidi3d.com/products/q1-pro-3d-printer",
+    "store_url": "https://us.qidi3d.com/products/q1-pro-3d-printer"
+  },
+  {
+    "brand": "QIDI",
+    "model": "Plus4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 305, "y": 305, "z": 280 },
+      "max_build_height_mm": 280,
+      "max_hotend_temp_c": 370,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "QIDI Box", "slots": 4, "max_units": 4 },
+      "common_accessories": ["QIDI Box (multi-color)", "Bimetal hotend", "Hardened steel nozzle", "Copper-plated nozzle", "PEI build plate"]
+    },
+    "detail_url": "https://us.qidi3d.com/products/plus4-3d-printer",
+    "store_url": "https://us.qidi3d.com/products/plus4-3d-printer"
+  },
+  {
+    "brand": "QIDI",
+    "model": "X-Smart 3",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 175, "y": 180, "z": 170 },
+      "max_build_height_mm": 170,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Copper-plated nozzle", "Hardened steel nozzle", "Brass nozzle", "PEI build plate"]
+    },
+    "detail_url": "https://qidi3d.com/pages/x-smart3",
+    "store_url": "https://us.qidi3d.com/products/qidi-x-smart-3"
+  },
+  {
+    "brand": "AnkerMake",
+    "model": "M5",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 235, "y": 235, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 260,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["PEI magnetic flexible build plate", "Hardened steel nozzle", "Hotend set", "Nozzle kit"]
+    },
+    "detail_url": "https://www.eufymake.com/m5",
+    "store_url": "https://www.eufymake.com/m5"
+  },
+  {
+    "brand": "AnkerMake",
+    "model": "M5C",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 220, "y": 220, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": 300,
+      "max_bed_temp_c": 100,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.2, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["PEI soft magnetic build plate", "All-metal hotend", "Hardened steel nozzle kit"]
+    },
+    "detail_url": "https://www.eufymake.com/m5c",
+    "store_url": "https://www.eufymake.com/m5c"
+  },
+  {
+    "brand": "UltiMaker",
+    "model": "S5",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 330, "y": 240, "z": 300 },
+      "max_build_height_mm": 300,
+      "max_hotend_temp_c": 280,
+      "max_bed_temp_c": 140,
+      "enclosed": false,
+      "chamber_heated": false,
+      "filament_diameter_mm": 2.85,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["AA 0.4 print core", "BB 0.4 print core", "Air Manager", "Material Station", "Heated glass build plate"]
+    },
+    "detail_url": "https://ultimaker.com/3d-printers/s-series/ultimaker-s5/",
+    "store_url": "https://ultimaker.com/3d-printers/s-series/ultimaker-s5/"
+  },
+  {
+    "brand": "UltiMaker",
+    "model": "S7",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 330, "y": 240, "z": 300 },
+      "max_build_height_mm": 300,
+      "max_hotend_temp_c": 280,
+      "max_bed_temp_c": 140,
+      "enclosed": true,
+      "chamber_heated": false,
+      "filament_diameter_mm": 2.85,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["AA print core", "BB print core", "CC print core (abrasive)", "Material Station", "PEI flexible build plate", "Air filtration"]
+    },
+    "detail_url": "https://ultimaker.com/3d-printers/s-series/ultimaker-s7/",
+    "store_url": "https://ultimaker.com/3d-printers/s-series/ultimaker-s7/"
+  },
+  {
+    "brand": "UltiMaker",
+    "model": "Factor 4",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 330, "y": 240, "z": 300 },
+      "max_build_height_mm": 300,
+      "max_hotend_temp_c": 340,
+      "max_bed_temp_c": 120,
+      "enclosed": true,
+      "chamber_heated": true,
+      "filament_diameter_mm": 2.85,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.25, 0.4, 0.6, 0.8],
+      "ams": { "type": "none" },
+      "common_accessories": ["Swappable print cores", "CC print core (abrasive)", "Active heated chamber (70C)", "Auto nozzle lifting", "Flood detection"]
+    },
+    "detail_url": "https://ultimaker.com/3d-printers/factor-series/ultimaker-factor-4/",
+    "store_url": "https://ultimaker.com/3d-printers/factor-series/ultimaker-factor-4/"
+  },
+  {
+    "brand": "Voron",
+    "model": "Voron 2.4 (350mm)",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 350, "y": 350, "z": 350 },
+      "max_build_height_mm": 350,
+      "max_hotend_temp_c": null,
+      "max_bed_temp_c": null,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Stealthburner toolhead", "Revo Voron / E3D V6 hotend", "Nevermore carbon filter", "Magnetic textured PEI plate", "Klipper firmware"]
+    },
+    "detail_url": "https://vorondesign.com/voron2.4",
+    "store_url": "https://vorondesign.com/voron2.4"
+  },
+  {
+    "brand": "Voron",
+    "model": "Voron Trident (300mm)",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 300, "y": 300, "z": 250 },
+      "max_build_height_mm": 250,
+      "max_hotend_temp_c": null,
+      "max_bed_temp_c": null,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Stealthburner toolhead", "PEI flex plate", "Triple Z lead screws", "Klipper firmware"]
+    },
+    "detail_url": "https://vorondesign.com/voron_trident",
+    "store_url": "https://vorondesign.com/voron_trident"
+  },
+  {
+    "brand": "Voron",
+    "model": "Voron 0.2",
+    "technology": "FDM",
+    "spec": {
+      "build_volume_mm": { "x": 120, "y": 120, "z": 120 },
+      "max_build_height_mm": 120,
+      "max_hotend_temp_c": null,
+      "max_bed_temp_c": null,
+      "enclosed": true,
+      "chamber_heated": null,
+      "filament_diameter_mm": 1.75,
+      "default_nozzle_mm": 0.4,
+      "nozzle_options_mm": [0.4],
+      "ams": { "type": "none" },
+      "common_accessories": ["Mini Stealthburner toolhead", "PEI flex plate", "CoreXY belts", "Klipper firmware"]
+    },
+    "detail_url": "https://vorondesign.com/voron0.2",
+    "store_url": "https://vorondesign.com/voron0.2"
+  }
+]

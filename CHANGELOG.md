@@ -4,6 +4,16 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+### Added
+- **Printer onboarding & management.** A new **Printers** page (add / edit / remove, set-active) lets you register the machines you print on. Each printer has a detailed **spec view** — build volume, max build height, max hotend & bed temperature, enclosure / heated chamber, filament diameter, default + available nozzle sizes, AMS / multi-material unit, common accessories, and links to the brand/model detail page + brand store. The add form can **prefill from a known model** out of a read-only seed (`data/catalog/printers.json`, **65 models across 11 brands** — Bambu Lab, Original Prusa, Creality, Anycubic, Elegoo, FlashForge, Sovol, QIDI, UltiMaker, Voron, AnkerMake; specs researched from official manufacturer sources, `null` where a value isn't confirmable), then everything stays editable. **First-run prompt:** when no printers are configured, opening the app shows an "Add your 3D printer?" dialog with **Add a printer / Not now / Don't ask again** (the last persists to settings so it never nags again). New `usePrintersStore` (persists per-install `printers.json`; exposes `active` + `hasAmsAnywhere` for future AMS-conditional UI), `PrintersPage` + `PrinterForm` + `PrinterDetail` + `AddPrinterPrompt`, `/printers` route + nav link, `Printer` / `PrinterSpec` / `CatalogPrinter` types, and `AppSettings.printer_prompt_dismissed`.
+
+### Changed
+- **Documentation refreshed for the native app.** README, `docs/install.md`, and the user guide (introduction, getting started, troubleshooting + a new **Printers** chapter) now describe installing/running the **Tauri app** (run the `.msi`/`.exe`, launch from the Start menu) instead of the old `npm run dev` + `scripts/start.ps1` PowerShell launch — `start.ps1` is documented as a dev-only convenience. `docs/architecture.md` gains the packaged-app (Tauri sidecar) process model, and the README/intro are broadened beyond the P2S to any FDM printer.
+
+### Fixed
+- **`scripts/test-clean.ps1` no longer disturbs your real browser profile.** It opened the test window with a throwaway Edge `--user-data-dir` and force-killed Edge on teardown; when Edge was already running on the default profile, that flag fell back to the default profile and the force-kill corrupted it ("set up Edge again"). The test window now opens in the **default profile** (data isolation already comes from the distinct `:5273` origin), and `destroy` stops only the helper + vite — never the browser.
+- **The first-run "Add a printer" button now opens the form even when you're already on the Printers page.** It relied on an `onMounted` read of `?add=1`, which doesn't re-fire when routing to the page you're already on; switched to a `watch` on the route query.
+
 ## [0.4.0] — 2026-05-24
 
 ### Added

@@ -34,13 +34,43 @@ How the app actually works on disk, in memory, and over the wire. Useful when de
 └────────────────────────────────┘
 ```
 
-Everything binds to `127.0.0.1` only. No network exposure.
+Everything binds to `127.0.0.1` only. No network exposure. The diagram above is the
+**dev** stack (`npm run dev` / `scripts/start.ps1`). The shipped app is packaged:
+
+### Packaged app (Tauri 2)
+
+```
+┌────────────────────────────────┐
+│  Haspel.exe (Tauri/Rust shell) │   ← user window, system WebView2
+│  loads bundled app/dist         │      origin: http://tauri.localhost
+└────────────┬───────────────────┘
+             │ spawns sidecar (tauri_plugin_shell), env PROJECT_ROOT=<resource dir>
+             ▼
+┌────────────────────────────────┐
+│  haspel-helper-<triple>.exe     │   ← the Node helper, bundled via esbuild → pkg
+│  127.0.0.1:5174                 │
+└────────────────────────────────┘
+```
+
+There's no Vite proxy in the packaged build, so the frontend can't rely on relative
+`/api` / `/data` paths. A runtime fetch shim (`app/src/lib/apiBase.ts` + `main.ts`)
+detects Tauri and rewrites those to `http://127.0.0.1:5174` — a no-op in dev/web, so
+the *same* `app/dist` works both in the webview and under `vite preview` (the
+`stest` harness). The read-only catalog/demo seed ships as Tauri **resources**
+(`PROJECT_ROOT` points the sidecar at them); user data stays at
+`%APPDATA%\Haspel\data`. Full build pipeline: `docs/tauri-packaging.md`.
 
 ## Lifecycle
 
-The killer feature: there's no manual stop ritual. In dev the helper's life is tied to the Vite process, so it lives as long as the app is running and exits when Vite stops.
+The killer feature: there's no manual stop ritual.
 
-### Startup (`scripts/start.ps1`)
+- **Packaged (Tauri):** the Rust shell spawns the helper sidecar at startup and
+  owns its handle, so closing the window tears the helper down with it. The
+  heartbeat watchdog stays as a belt-and-braces backstop.
+- **Dev:** the helper's life is tied to the Vite process, so it lives as long as the
+  app is running and exits when Vite stops.
+
+### Dev startup (`scripts/start.ps1`) — dev workflow only; the installed app doesn't use this
 
 1. Sanity-check `node`, `npm`, `claude` on PATH.
 2. If `127.0.0.1:5174/healthz` already responds → skip helper start.
@@ -85,7 +115,7 @@ Single-file Node ESM, ~294 LOC, no runtime deps. Why no Express: the surface is 
 ### Hardening
 
 - Loopback bind only (`127.0.0.1`).
-- CORS pinned to `http://127.0.0.1:5173`.
+- CORS: `ALLOWED_ORIGIN` env-overridable (default `http://127.0.0.1:5173`); the allowlist also covers the Tauri webview origins (`http://tauri.localhost` / `tauri://localhost`) and the `stest` origin (`:5273`). `setCors` echoes the request's Origin when it's in the allowlist.
 - Filename regex: `^[a-z0-9-]+\.json$` for writes, `^([a-z0-9-]+/)?[a-z0-9-]+\.json$` for reads (single optional subdir for `data/catalog/`).
 - `path.relative(DATA_DIR, resolved).startsWith('..')` traversal guard layered on top of the regex.
 - Atomic writes: write to `<file>.tmp`, then `fs.rename` — readers never see partial JSON.
@@ -125,6 +155,9 @@ One store per JSON file under `data/`:
 - `emptySpools` → `data/empty-spools.json`
 - `aiCache` → `data/ai-cache.json` (read-only from frontend; helper owns writes)
 - `settings` → `data/settings.json`
+- `printers` → `data/printers.json`
+- `filamentHistory` → `data/filament-history.json` (archive of removed filaments)
+- `catalog` → read-only `data/catalog/{replacement-parts,consumables,printers}.json`
 
 All stores share the `loadData` / `saveData` helpers in `app/src/composables/useDataPersistence.ts`. On `save()` failure, falls back to `localStorage` so the UI stays responsive when the helper is offline.
 
@@ -206,31 +239,36 @@ The conflict-rate held to almost zero across three simultaneous sessions. Key le
 3dprinter/
 ├── app/                              # Vue 3 SPA (frontend)
 │   ├── src/
-│   │   ├── stores/                   # Pinia (one per data file)
-│   │   ├── composables/              # useDataPersistence, useFilamentLookup
-│   │   ├── components/               # Filament*, Accessory*, Order*, Swatch*, Rating*
-│   │   ├── pages/                    # FilamentsPage, AccessoriesPage, ShoppingPage, …
+│   │   ├── stores/                   # Pinia (one per data file; incl. printers, filamentHistory)
+│   │   ├── composables/              # useDataPersistence, useFilamentLookup, useAiSettings, useHealthz
+│   │   ├── lib/                      # apiBase (Tauri fetch routing), filamentName, labels/, swatch/
+│   │   ├── components/               # Filament*, Accessory*, Printer*, AddPrinterPrompt, Order*, Swatch*, Rating*
+│   │   ├── pages/                    # FilamentsPage, AccessoriesPage, PrintersPage, ShoppingPage, LabelsPage, …
 │   │   ├── router/, types/, App.vue, main.ts
-│   ├── public/manifest.webmanifest
-│   ├── vite.config.ts                # helperPlugin (Chunk D) + /api+/data proxy
-│   └── package.json
+│   ├── vite.config.ts                # helperPlugin + /api+/data proxy (dev + preview), env-driven ports
+│   └── package.json                  # scripts: dev, build, app:dev, app:build, build:sidecar
+├── src-tauri/                        # Tauri 2 native shell (Rust)
+│   ├── src/main.rs                   # spawns the helper sidecar, sets PROJECT_ROOT
+│   ├── tauri.conf.json               # frontendDist=../app/dist, externalBin, resources (catalog/demo)
+│   ├── capabilities/default.json     # shell:allow-execute scoped to the sidecar
+│   └── Cargo.toml, build.rs, icons/  (binaries/, target/, gen/ are gitignored)
 ├── helper/
 │   ├── index.mjs                     # the whole helper service
 │   ├── package.json                  # node version pin only
 │   └── README.md
-├── data/                             # static JSON, committed
-│   ├── filaments.json                # user inventory
-│   ├── accessories.json
-│   ├── shopping.json
-│   ├── empty-spools.json
-│   ├── ai-cache.json
-│   └── catalog/
-│       ├── replacement-parts.json    # 33 P2S parts, read-only seed
-│       └── consumables.json          # 16 consumables, read-only seed
+├── data/                             # seeds ship empty ([]); real data is per-install (%APPDATA%\Haspel\data)
+│   ├── filaments.json … shopping.json
+│   ├── demo/                         # opt-in demo content (Settings → Load demo data)
+│   └── catalog/                      # read-only seed
+│       ├── replacement-parts.json
+│       ├── consumables.json
+│       └── printers.json             # 65-model printer reference
 ├── scripts/
-│   ├── start.ps1                     # taskbar launcher
-│   ├── install-shortcut.ps1          # desktop-shortcut installer
-│   └── new-worktree.ps1              # multi-chat worktree helper
+│   ├── build-sidecar.mjs             # bundle the helper → Tauri sidecar exe (esbuild → pkg)
+│   ├── build-prod.ps1, build-docs.mjs   # production build + user-guide PDF bundle
+│   ├── test-clean.ps1                # isolated fresh-user instance (stest / dtest)
+│   ├── start.ps1                     # dev launcher (dev workflow only)
+│   └── install-shortcut.ps1, new-worktree.ps1
 └── docs/
     ├── architecture.md               # this file
     ├── install.md                    # ~2-min setup walkthrough

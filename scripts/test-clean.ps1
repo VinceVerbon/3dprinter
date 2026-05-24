@@ -63,7 +63,6 @@ $appDir      = Join-Path $repoRoot 'app'
 $helperEntry = Join-Path $repoRoot 'helper\index.mjs'
 $testRoot    = Join-Path $repoRoot '.test-instance'
 $testData    = Join-Path $testRoot 'data'
-$edgeProfile = Join-Path $testRoot 'edge-profile'
 $stateFile   = Join-Path $testRoot 'state.json'
 
 function Resolve-Npm {
@@ -114,27 +113,25 @@ function Stop-PortListeners {
 
 function Invoke-Destroy {
   $killedSomething = $false
+  # Stop ONLY the test helper + vite — NEVER the browser. The test window runs in
+  # your normal browser profile; force-killing the browser can corrupt it. Just
+  # close the test window yourself (it shows "can't connect" once the server is gone).
   if (Test-Path $stateFile) {
     try {
       $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-      foreach ($procId in @($state.edgePid, $state.vitePid, $state.helperPid)) {
+      foreach ($procId in @($state.vitePid, $state.helperPid)) {
         if ($procId) { Stop-Tree -ProcessId ([int]$procId); $killedSomething = $true }
       }
     } catch { Write-Warning "[test] state.json unreadable; falling back to port sweep." }
   }
-  Stop-PortListeners
+  Stop-PortListeners   # only 5273/5274 (node helper + vite) — never the browser
 
-  # Edge can hold a lock on the profile for a moment after taskkill; retry the delete.
+  if (Test-Path $testRoot) { Remove-Item $testRoot -Recurse -Force -ErrorAction SilentlyContinue }
   if (Test-Path $testRoot) {
-    for ($i = 0; $i -lt 5; $i++) {
-      try { Remove-Item $testRoot -Recurse -Force -ErrorAction Stop; break }
-      catch { Start-Sleep -Milliseconds 400 }
-    }
-  }
-  if (Test-Path $testRoot) {
-    Write-Warning "[test] could not fully delete $testRoot (a file may still be locked). Re-run -Action destroy."
+    Write-Warning "[test] could not fully delete $testRoot — close the test window, then re-run -Action destroy."
   } else {
-    Write-Host "[test] destroyed — test processes stopped, $testRoot wiped." -ForegroundColor Green
+    Write-Host "[test] destroyed — test helper + vite stopped, $testRoot wiped." -ForegroundColor Green
+    Write-Host "[test] (the test browser window, if open, is harmless — close it yourself.)"
     if (-not $killedSomething) { Write-Host "[test] (nothing was running)" }
   }
 }
@@ -186,9 +183,8 @@ function Invoke-Start {
     } finally { Pop-Location }
   }
 
-  # 2. Fresh throwaway dirs.
-  New-Item -ItemType Directory -Force -Path $testData    | Out-Null
-  New-Item -ItemType Directory -Force -Path $edgeProfile | Out-Null
+  # 2. Fresh throwaway data dir.
+  New-Item -ItemType Directory -Force -Path $testData | Out-Null
 
   # 3. Spawn the isolated helper. Set env, spawn (child inherits), then clear.
   Write-Host "[test] starting isolated helper on $HELPER_PORT (data: $testData)…" -ForegroundColor Cyan
@@ -238,13 +234,18 @@ function Invoke-Start {
     } catch { Write-Warning "[test] demo-data load failed: $($_.Exception.Message)" }
   }
 
-  # 7. Open an isolated Edge/Chrome app window (throwaway profile).
+  # 7. Open an app window for the test instance — in the DEFAULT browser profile
+  # (NO --user-data-dir). Data isolation comes from the PORT: 127.0.0.1:5273 is a
+  # distinct origin from the real app, so its localStorage/IndexedDB are already
+  # separate. A throwaway --user-data-dir is unreliable when the browser is
+  # already running (it can silently fall back to the default profile) and, with
+  # a force-kill on teardown, can corrupt the user's real profile. So: default
+  # profile, and destroy NEVER kills the browser (see Invoke-Destroy).
   $edgePid = $null
   if (-not $NoBrowser) {
     $browser = Resolve-EdgeOrChrome
     if ($browser) {
-      $b = Start-Process -FilePath $browser `
-        -ArgumentList "--app=$VITE_ORIGIN/", "--user-data-dir=$edgeProfile" -PassThru
+      $b = Start-Process -FilePath $browser -ArgumentList "--app=$VITE_ORIGIN/" -PassThru
       $edgePid = $b.Id
     } else {
       Write-Warning "[test] no Edge/Chrome found — open $VITE_ORIGIN/ manually."
