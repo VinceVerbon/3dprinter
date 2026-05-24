@@ -4,6 +4,8 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-24
+
 ### Added
 - **Printer onboarding & management.** A new **Printers** page (add / edit / remove, set-active) lets you register the machines you print on. Each printer has a detailed **spec view** — build volume, max build height, max hotend & bed temperature, enclosure / heated chamber, filament diameter, default + available nozzle sizes, AMS / multi-material unit, common accessories, and links to the brand/model detail page + brand store. The add form can **prefill from a known model** out of a read-only seed (`data/catalog/printers.json`, **65 models across 11 brands** — Bambu Lab, Original Prusa, Creality, Anycubic, Elegoo, FlashForge, Sovol, QIDI, UltiMaker, Voron, AnkerMake; specs researched from official manufacturer sources, `null` where a value isn't confirmable), then everything stays editable. **First-run prompt:** when no printers are configured, opening the app shows an "Add your 3D printer?" dialog with **Add a printer / Not now / Don't ask again** (the last persists to settings so it never nags again). New `usePrintersStore` (persists per-install `printers.json`; exposes `active` + `hasAmsAnywhere` for future AMS-conditional UI), `PrintersPage` + `PrinterForm` + `PrinterDetail` + `AddPrinterPrompt`, `/printers` route + nav link, `Printer` / `PrinterSpec` / `CatalogPrinter` types, and `AppSettings.printer_prompt_dismissed`.
 
