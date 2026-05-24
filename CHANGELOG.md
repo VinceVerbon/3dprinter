@@ -4,6 +4,15 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-24
+
+### Added
+- **On-demand brand-store shopping.** The shopping catalog is no longer a static preloaded list — it's fetched per brand, on demand, from the stores of the printers you own. `data/catalog/{replacement-parts,consumables}.json` now ship **empty** (`[]`); a new per-install `store-lists.json` holds fetched lists, each stamped with `fetched_at`. New helper endpoint `POST /api/fetch-store` fetches a brand store **from the user's own machine** (so it isn't blocked the way cloud IPs are) and returns a `StoreList`. For Bambu (a Next.js storefront) it reads the P2S / AMS 2 Pro collection pages for product handles, then pulls each product page's embedded schema.org data for the real **name + EUR price + SKU**, categorising by keyword — no AI tokens, ~2 s for ~70 items (prices appear where the store lists them; out-of-stock parts have none). Other brands are best-effort from a user-supplied store URL, with a graceful "add items manually" fallback. The **Shopping** page gains a brand-store dropdown, an editable store URL (prefilled with the brand's EU store base), an intentional **Update store** button (never auto-fetches — no wasted tokens/bandwidth), a per-store filter, and a "last updated N days ago / stale" indicator. New `StoreItem` / `StoreList` types, `useStoreListsStore`, `useStoreFetch`, and a reworked `CatalogPicker` sourcing from fetched lists.
+- **Store-staleness prompt + notification management.** A store list older than **30 days** raises a prompt — **Update now? / No / Ask me in a week / Disable this notification** — backed by a general keyed notification state (`disabled` + `snoozed`) in settings and a shared `useNotifications` composable. **Settings → Notifications** lists disabled/snoozed notifications with per-item re-enable and a "reset all" action. New `StaleStorePrompt.vue` (mounted globally in `App.vue`), `NotificationState` type.
+
+### Fixed
+- **Printer catalog brand-store links now point to the EU store.** All 10 Bambu `store_url`s in `data/catalog/printers.json` pointed at the US store (`us.store.bambulab.com`); switched to `eu.store.bambulab.com` to match the app's EU/NL orientation. The X1-Carbon slug was also corrected (`bambu-lab-x1-carbon` → `x1-carbon`, which 404'd on the EU store). Each EU product URL was verified to return HTTP 200.
+
 ## [0.5.0] — 2026-05-24
 
 ### Added
