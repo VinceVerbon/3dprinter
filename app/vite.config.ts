@@ -10,7 +10,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = path.resolve(__dirname, '..')
 const HELPER_ENTRY = path.join(PROJECT_ROOT, 'helper', 'index.mjs')
 const HELPER_HOST = '127.0.0.1'
-const HELPER_PORT = 5174
+// Ports are env-overridable so a side-by-side clean-test instance
+// (scripts/test-clean.ps1) can run on 5273/5274 without colliding with the
+// real dev/app instance on 5173/5174. Defaults preserve normal behaviour.
+const VITE_PORT = parseInt(process.env.VITE_PORT || '5173', 10)
+const HELPER_PORT = parseInt(process.env.HELPER_PORT || '5174', 10)
 
 // Spawns the helper service as a child of `vite` in dev mode, passing
 // VITE_PID so the helper can kill Vite when its own heartbeat watchdog
@@ -71,6 +75,21 @@ function helperPlugin(): Plugin {
 
 const helperTarget = `http://${HELPER_HOST}:${HELPER_PORT}`
 
+// Shared proxy: route /api → helper (stripping the prefix) and /data → helper.
+// Used by both the dev server and `vite preview` (the clean-test harness serves
+// the production build via preview and still needs the helper reachable).
+const helperProxy = {
+  '/api': {
+    target: helperTarget,
+    changeOrigin: true,
+    rewrite: (p: string) => p.replace(/^\/api/, ''),
+  },
+  '/data': {
+    target: helperTarget,
+    changeOrigin: true,
+  },
+}
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -102,19 +121,17 @@ export default defineConfig({
     // probe and Edge --app=http://127.0.0.1:5173/. Keeping it on 127.0.0.1
     // matches the helper's bind address.
     host: '127.0.0.1',
-    port: 5173,
+    port: VITE_PORT,
     strictPort: true,
-    proxy: {
-      '/api': {
-        target: helperTarget,
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ''),
-      },
-      '/data': {
-        target: helperTarget,
-        changeOrigin: true,
-      },
-    },
+    proxy: helperProxy,
+  },
+  // `vite preview` serves the built app/dist. The clean-test harness
+  // (scripts/test-clean.ps1) runs it on VITE_PORT=5273 → HELPER_PORT=5274.
+  preview: {
+    host: '127.0.0.1',
+    port: VITE_PORT,
+    strictPort: true,
+    proxy: helperProxy,
   },
   build: { target: 'es2022', outDir: 'dist' },
 })

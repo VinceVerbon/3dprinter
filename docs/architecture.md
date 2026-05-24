@@ -190,7 +190,7 @@ Multicolor filaments match if *any* stop falls in the selected family. Only fami
 
 The repo is set up for multiple sessions to work in parallel via git worktrees + a shared crosslog. Documented in detail in `crosslog.md`'s Protocol section and `docs/parallel-work.md`.
 
-Worktrees live under `worktrees/3dprinter\<branch>` and share the main checkout's `.git` and `crosslog.md`. Path ownership is declared per chunk in `docs/parallel-work.md` ("DO NOT TOUCH" lists). The arrangement that worked for v0.1 → v0.2:
+Worktrees live under a sibling `worktrees/<repo-name>/<branch>` directory (see `scripts/new-worktree.ps1`) and share the main checkout's `.git` and `crosslog.md`. Path ownership is declared per chunk in `docs/parallel-work.md` ("DO NOT TOUCH" lists). The arrangement that worked for v0.1 → v0.2:
 
 | Chat | Owns |
 |------|------|

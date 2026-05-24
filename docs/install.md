@@ -13,9 +13,9 @@ One-time setup, ~2 minutes.
 ## First-time setup
 
 ```powershell
-# 1. Clone (uses the github SSH alias on the local workstation)
-git clone https://github.com/VinceVerbon/3dprinter.git <repo-dir>
-cd <repo-dir>\app
+# 1. Clone
+git clone https://github.com/VinceVerbon/3dprinter.git
+cd 3dprinter\app
 npm install
 
 # 2. Create the desktop shortcut + (optionally) pin it to the taskbar

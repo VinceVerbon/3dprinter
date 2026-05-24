@@ -1,9 +1,11 @@
 <#
 .SYNOPSIS
-  Create a git worktree for the 3dprinter repo under worktrees/3dprinter\<branch>.
+  Create a git worktree for this repo under <repo-parent>\worktrees\<repo-name>\<branch>.
 
 .DESCRIPTION
-  Run from the main checkout (<repo-dir>) or anywhere inside it.
+  Run from the main checkout or anywhere inside it. The worktree parent dir is
+  derived from the repo location (sibling "worktrees" folder), so there are no
+  hardcoded machine paths.
   Creates the parent dir if missing.
   By default creates a NEW branch from current HEAD; use -Existing to attach to an
   existing local or remote branch.
@@ -16,7 +18,8 @@
 
 .EXAMPLE
   .\scripts\new-worktree.ps1 calibration
-  # creates branch "calibration" from HEAD and worktree at worktrees/3dprinter\calibration
+  # creates branch "calibration" from HEAD and a worktree named "calibration"
+  # under the sibling worktrees\<repo-name> directory
 
 .EXAMPLE
   .\scripts\new-worktree.ps1 main -Existing
@@ -34,11 +37,15 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (git rev-parse --show-toplevel) 2>$null
 if (-not $repoRoot) {
-  Write-Error "Not inside a git repo. cd to <repo-dir> first."
+  Write-Error "Not inside a git repo. cd into the repo first."
   exit 1
 }
 
-$parent = 'worktrees/3dprinter'
+# Worktrees live in a "worktrees\<repo-name>" folder beside the repo, e.g. a repo
+# at <X>\<repo> gets worktrees under <X>\worktrees\<repo>. No hardcoded paths.
+$repoParent = Split-Path -Parent $repoRoot
+$repoName   = Split-Path -Leaf  $repoRoot
+$parent     = Join-Path (Join-Path $repoParent 'worktrees') $repoName
 if (-not (Test-Path $parent)) {
   New-Item -ItemType Directory -Path $parent | Out-Null
 }

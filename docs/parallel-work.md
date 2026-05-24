@@ -9,7 +9,7 @@ This doc enumerates work units that can be done **in parallel with the main scaf
 3. Spin up a worktree for isolation (recommended, not required):
    ```powershell
    .\scripts\new-worktree.ps1 chunk-<n>-<short-name>
-   cd worktrees/3dprinter\chunk-<n>-<short-name>
+   cd ..\worktrees\3dprinter\chunk-<n>-<short-name>   # new-worktree.ps1 prints the exact path
    ```
 4. Work within your chunk's allowed paths only. Honor the **DO NOT TOUCH** lists below.
 5. When done: commit on the branch, push, open a PR (or fast-forward merge to `main` if trivial).
@@ -178,7 +178,7 @@ Each entry: `{ id, name, category, typical_unit, suggested_brands?, notes, sourc
 - Description: "Bambu P2S supplies database".
 
 **Acceptance criteria:**
-- Double-clicking `start.ps1` boots the app end-to-end on the local workstation.
+- Double-clicking `start.ps1` boots the app end-to-end.
 - Closing the Edge window leads to helper exit within ~45 s (verifiable via `Get-Process node` after 60 s).
 - Re-running `start.ps1` while the app is open is a no-op (doesn't double-spawn).
 - `install-shortcut.ps1` produces a working desktop shortcut.
@@ -289,7 +289,7 @@ When merging back: rebase onto `main` and resolve `crosslog.md` by appending eac
 | **SUNLU** | Their store uses Shopify; product pages have a structured `<script type="application/ld+json">` block with image + variant info. Fetch by `https://www.sunlu.com/products/<slug>`, regex slug from name. Pull dominant color from main image (use `node-vibrant` or similar — small dep, justified). Confidence: low. |
 | **123-3d.nl** | Dutch retailer, also Magento-style listings. Search-then-scrape: GET `https://www.123-3d.nl/catalogsearch/result/?q=<brand>+<name>` → first product card → product page → image → dominant color. Confidence: low. |
 | **RealFilament** | `realfilament.com` — small catalog, often has hex codes in product description. Search-then-scrape similar to 123-3d. Confidence: low. |
-| **Firecrawl fallback** | `$FIRECRAWL_API_KEY` env var (lives on the local workstation). POST to `https://api.firecrawl.dev/v1/scrape` with `{url, formats: ['extract'], extract: {schema: {hex: 'string', effects: 'string[]'}}}`. Confidence: low. Use only when no brand resolver matched. |
+| **Firecrawl fallback** | `$FIRECRAWL_API_KEY` env var. POST to `https://api.firecrawl.dev/v1/scrape` with `{url, formats: ['extract'], extract: {schema: {hex: 'string', effects: 'string[]'}}}`. Confidence: low. Use only when no brand resolver matched. |
 
 **Caching:**
 - `data/swatch-cache.json`, key = `${brand}|${name}|${color_code||variant||''}`, value = `ResolverResult`. Same shape as ai-cache.

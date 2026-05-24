@@ -63,7 +63,19 @@ const USER_DATA_FILES = [
 
 const HOST = '127.0.0.1';
 const PORT = parseInt(process.env.HELPER_PORT || '5174', 10);
-const ALLOWED_ORIGIN = 'http://127.0.0.1:5173';
+// CORS: the dev-server origin is the default (overridable via ALLOWED_ORIGIN so
+// the side-by-side clean-test instance on 5273 can allow its own origin). The
+// packaged Tauri app loads from a custom-protocol origin (http://tauri.localhost
+// on Windows, tauri://localhost on macOS/Linux) and calls the helper at
+// 127.0.0.1:5174 cross-origin, so those are allowed too. setCors echoes the
+// request's Origin when it's in this set.
+const DEFAULT_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:5173';
+const ALLOWED_ORIGINS = new Set([
+  DEFAULT_ORIGIN,
+  'http://tauri.localhost',
+  'https://tauri.localhost',
+  'tauri://localhost',
+]);
 
 // Set by the Vite plugin in app/vite.config.ts when this helper is spawned
 // as a child of `npm run dev`. When the heartbeat watchdog fires (PWA closed)
@@ -98,7 +110,13 @@ const FILE_RE_FLAT = /^[a-z0-9-]+\.json$/;
 const FILE_RE_READ = /^([a-z0-9-]+\/)?[a-z0-9-]+\.json$/;
 
 function setCors(res) {
-  res.setHeader('access-control-allow-origin', ALLOWED_ORIGIN);
+  // res._reqOrigin is stashed at the top of the request handler. Echo it when
+  // it's an allowed origin (lets dev, the stest instance, and the Tauri webview
+  // all work); otherwise fall back to the default dev origin.
+  const o = res._reqOrigin;
+  const allow = o && ALLOWED_ORIGINS.has(o) ? o : DEFAULT_ORIGIN;
+  res.setHeader('access-control-allow-origin', allow);
+  res.setHeader('vary', 'origin');
   res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
   res.setHeader('access-control-allow-headers', 'content-type');
 }
@@ -975,6 +993,7 @@ async function lookupFilament(brand, name, force) {
 
 const server = createServer(async (req, res) => {
   try {
+    res._reqOrigin = req.headers.origin;
     if (req.method === 'OPTIONS') {
       setCors(res);
       res.statusCode = 204;

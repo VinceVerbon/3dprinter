@@ -1,12 +1,16 @@
 {
   "name": "3dprinter",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "build:sidecar": "node ../scripts/build-sidecar.mjs",
+    "app:dev": "cd .. && app/node_modules/.bin/tauri dev",
+    "app:build": "node ../scripts/build-sidecar.mjs && cd .. && app/node_modules/.bin/tauri build"
   },
   "dependencies": {
     "lucide-vue-next": "^1.0.0",
@@ -16,9 +20,12 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
+    "@yao-pkg/pkg": "^6.19.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.2.4",
     "typescript": "~6.0.2",
     "vite": "^8.0.10",

@@ -27,6 +27,16 @@ node_modules/
 # Helper PDF render scratch (Edge headless tmp + last-rendered PDF)
 .tmp/
 
+# Clean-test instance: throwaway data dir + Edge profile + state, created by
+# scripts/test-clean.ps1 and wiped on `-Action destroy`. Never committed.
+.test-instance/
+
+# Tauri build artifacts (Rust target, generated schemas, bundled sidecar binary)
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
+dist-sidecar/
+
 # Per-install user data — generated/edited at runtime, never committed.
 # (The canonical location is %APPDATA%\Haspel\data\ on Windows, etc.;
 # see helper/index.mjs getUserDataDir(). These ignores stop a stray

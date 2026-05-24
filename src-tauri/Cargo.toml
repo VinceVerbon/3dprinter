@@ -1,0 +1,22 @@
+[package]
+name = "haspel"
+version = "0.4.0"
+description = "Haspel — 3D printer supplies tracker"
+authors = ["Haspel"]
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+
+# Smaller, faster-to-ship release binaries.
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
