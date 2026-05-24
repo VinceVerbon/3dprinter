@@ -18,6 +18,7 @@ const DEFAULT: AppSettings = {
     order_import: 'claude-sonnet-4-6',
   },
   ai_lookup_enabled: true,
+  notifications: { disabled: [], snoozed: {} },
 }
 
 export const useSettingsStore = defineStore('settings', () => {

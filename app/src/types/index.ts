@@ -148,6 +148,9 @@ export interface AppSettings {
   /** When true, the first-run "add a printer?" prompt is suppressed on startup
    *  (user ticked "don't ask again"). */
   printer_prompt_dismissed?: boolean
+  /** Keyed notification state (disabled + snoozed). Managed from Settings →
+   *  Notifications. Drives the store-staleness prompt; extensible to others. */
+  notifications?: NotificationState
 }
 
 export interface CatalogReplacementPart {
@@ -223,4 +226,38 @@ export interface CatalogPrinter {
   spec: PrinterSpec
   detail_url?: string
   store_url?: string
+}
+
+// ---------------------------------------------------------------------------
+// Brand-store shopping — on-demand store lists (never preloaded) + keyed
+// notification state. See docs/architecture.md / project memory.
+// ---------------------------------------------------------------------------
+
+/** A single shoppable item from a brand store (replacement part / consumable). */
+export interface StoreItem {
+  name: string
+  sku?: string
+  category?: string            // e.g. "nozzle", "build_plate", "glue", "consumable"
+  price_eur?: number
+  url?: string                 // direct product URL where known
+  note?: string                // P2S/AMS relevance or other context
+}
+
+/** Per-brand store contents, fetched/inferred ON DEMAND (never shipped
+ *  preloaded). Persisted per-install at store-lists.json as StoreList[], one
+ *  entry per brand. `fetched_at` drives the >30-day staleness prompt. */
+export interface StoreList {
+  brand: string                // e.g. "Bambu Lab"
+  store_url?: string           // brand store page this was sourced from
+  fetched_at: string           // ISO timestamp of the last fetch (staleness clock)
+  source: 'ai' | 'manual'
+  items: StoreItem[]
+}
+
+/** General, keyed notification state. A notification key is "active" (allowed to
+ *  prompt) unless it's in `disabled` or snoozed past now. Managed from
+ *  Settings → Notifications. Store-staleness uses keys `store-stale:<brand-slug>`. */
+export interface NotificationState {
+  disabled: string[]                  // keys turned off ("disable this notification")
+  snoozed: Record<string, string>     // key -> ISO timestamp to stay quiet until ("ask me in a week")
 }
