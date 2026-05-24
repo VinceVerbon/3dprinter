@@ -19,40 +19,48 @@ const saving = ref(false)
 const message = ref<string | null>(null)
 const showPicker = ref(false)
 
-// Brand-store panel state
-/** The brand currently selected in the "Update store" panel */
+// Brand-store panel state — selection is per owned PRINTER (make+model),
+// because the parts list differs per model.
 const selectedBrand = ref<string>('')
-/** Editable store URL for the selected brand (prefilled from printer's store_url) */
+const selectedModel = ref<string | null>(null)
+/** Editable store URL (prefilled from the brand's EU store base / printer). */
 const editableStoreUrl = ref<string>('')
-/** Filter: '' = show items from all owned stores */
+/** Filter: '' = show items from all owned stores; else a brand. */
 const storeFilter = ref<string>('')
+
+function printerKey(brand: string, model?: string | null): string {
+  return `${brand}${model ?? ''}`
+}
+const selectedKey = computed(() => printerKey(selectedBrand.value, selectedModel.value))
+
+interface PrinterOption { brand: string; model: string | null; label: string; key: string }
+/** Owned printers (make+model), plus any already-fetched lists not currently owned. */
+const ownedPrinters = computed<PrinterOption[]>(() => {
+  const seen = new Map<string, PrinterOption>()
+  const add = (brand: string, model: string | null) => {
+    if (!brand) return
+    const key = printerKey(brand, model)
+    if (!seen.has(key)) seen.set(key, { brand, model: model || null, label: model ? `${brand} ${model}` : brand, key })
+  }
+  for (const p of printersStore.printers) add(p.brand, p.model ?? null)
+  for (const l of storeLists.lists) add(l.brand, l.model ?? null)
+  return [...seen.values()]
+})
+
+function selectPrinter(brand: string, model: string | null) {
+  selectedBrand.value = brand
+  selectedModel.value = model
+  editableStoreUrl.value = storeUrlForBrand(brand)
+}
 
 onMounted(async () => {
   await Promise.all([store.load(), storeLists.load(), printersStore.load()])
-  // Seed the brand selector with the active printer's brand (if any)
-  const activeBrand = printersStore.active?.brand ?? ''
-  if (activeBrand) {
-    selectedBrand.value = activeBrand
-    editableStoreUrl.value = storeUrlForBrand(activeBrand)
-  } else if (ownedBrands.value.length > 0) {
-    selectedBrand.value = ownedBrands.value[0]
-    editableStoreUrl.value = storeUrlForBrand(ownedBrands.value[0])
+  const a = printersStore.active
+  if (a?.brand) selectPrinter(a.brand, a.model ?? null)
+  else if (ownedPrinters.value.length > 0) {
+    const p = ownedPrinters.value[0]
+    selectPrinter(p.brand, p.model)
   }
-})
-
-// ---------------------------------------------------------------------------
-// Derived brand/store data
-// ---------------------------------------------------------------------------
-
-/** Unique brands across all configured printers */
-const ownedBrands = computed<string[]>(() => {
-  const seen = new Set<string>()
-  for (const p of printersStore.printers) {
-    if (p.brand) seen.add(p.brand)
-  }
-  // Also include any brands already in storeLists (fetched previously)
-  for (const b of storeLists.brands) seen.add(b)
-  return [...seen]
 })
 
 // Known EU store bases per brand — used so the prefill is the actual shop, not
@@ -76,13 +84,13 @@ function storeUrlForBrand(brand: string): string {
   return printer?.store_url ?? ''
 }
 
-function onBrandChange(brand: string) {
-  selectedBrand.value = brand
-  editableStoreUrl.value = storeUrlForBrand(brand)
+function onPrinterChange(key: string) {
+  const p = ownedPrinters.value.find((x) => x.key === key)
+  if (p) selectPrinter(p.brand, p.model)
 }
 
 const selectedList = computed(() =>
-  selectedBrand.value ? storeLists.get(selectedBrand.value) : undefined,
+  selectedBrand.value ? storeLists.get(selectedBrand.value, selectedModel.value) : undefined,
 )
 
 const ageLabel = computed<string>(() => {
@@ -101,7 +109,7 @@ const isStale = computed(() =>
 
 async function doFetch() {
   if (!selectedBrand.value) return
-  await fetchStore(selectedBrand.value, editableStoreUrl.value || undefined, true)
+  await fetchStore(selectedBrand.value, selectedModel.value ?? undefined, editableStoreUrl.value || undefined, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -174,11 +182,9 @@ function fmtEur(v: number): string {
 /** Items to display, optionally filtered to one brand-store's source_ids */
 const filteredItems = computed(() => {
   if (!storeFilter.value) return store.items
-  const list = storeLists.get(storeFilter.value)
-  if (!list) return store.items
-  const ids = new Set(list.items.map((i) => `${list.brand}|${i.name}`))
+  const prefix = `${storeFilter.value}|`
   return store.items.filter(
-    (i) => i.source_type === 'replacement_part' && i.source_id && ids.has(i.source_id),
+    (i) => i.source_type === 'replacement_part' && !!i.source_id && i.source_id.startsWith(prefix),
   )
 })
 
@@ -253,12 +259,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
         <!-- Brand selector -->
         <select
-          v-if="ownedBrands.length > 0"
-          :value="selectedBrand"
-          @change="onBrandChange(($event.target as HTMLSelectElement).value)"
+          v-if="ownedPrinters.length > 0"
+          :value="selectedKey"
+          @change="onPrinterChange(($event.target as HTMLSelectElement).value)"
           class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-sm text-slate-200"
         >
-          <option v-for="b in ownedBrands" :key="b" :value="b">{{ b }}</option>
+          <option v-for="p in ownedPrinters" :key="p.key" :value="p.key">{{ p.label }}</option>
         </select>
         <span v-else class="text-xs text-slate-500">No printers configured — add one in the Printers tab first.</span>
 

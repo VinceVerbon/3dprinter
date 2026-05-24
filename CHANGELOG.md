@@ -4,6 +4,11 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-24
+
+### Changed
+- **Brand-store shopping is now AI-inferred per make+model — no more store scraping.** The v0.6.x approach (scrape the Bambu store HTML + fetch each product page for prices) was unreliable: it rate-limited the store, prices aren't server-rendered, and only the P2S had a real per-model collection (P1S/X1/A1 collections were near-empty). Replaced with a single AI-inference call: given the owned printer's **brand + model**, the helper asks the configured model for the spare parts / consumables / add-ons that brand's store sells **tailored to that exact model**. It covers each model's multi-material unit (Bambu AMS / AMS 2 Pro, Anycubic ACE / ACE Pro, Prusa MMU3, Mosaic Palette, Creality CFS — `ams` category, omitted when the model has none) and brand-specialty add-ons (spool holders, filament dryers/warmers, enclosure kits, aux cooling, camera/LED — `accessory` category). **No prices** (the store doesn't expose them to a server fetch; opted out). Crucially the inference runs **tools-disabled (`--tools ""`)** so Claude does a single-turn knowledge generation instead of autonomously web-browsing — browsing took 5+ minutes and timed out; the no-tools call is ~60–130 s and reliable. Cached per `brand|model` for 24 h. The Shopping selector is now per owned **printer (make+model)**; `store-lists.json`, the staleness prompt's notification key, and the catalog picker are keyed by make+model. Verified end-to-end: **P2S** → AMS 2 Pro parts + Bambu add-ons; **Anycubic Kobra S1 Combo** → ACE Pro parts + dryer/enclosure; **Prusa MK4S** → no AMS, Prusa-specific parts; UI dropdown shows "Bambu Lab P2S" and the list renders.
+
 ## [0.6.1] — 2026-05-24
 
 ### Fixed

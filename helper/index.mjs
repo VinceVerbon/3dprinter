@@ -449,6 +449,13 @@ async function callProvider({ provider, model, apiKey, system, prompt, mode = 't
     } else if (mode === 'pdf') {
       extraArgs = ['--allowedTools', 'Read', '--permission-mode', 'bypassPermissions', '--no-session-persistence'];
       if (system) extraArgs.push('--append-system-prompt', system);
+    } else if (mode === 'notools') {
+      // Pure single-turn generation from the model's knowledge. `--tools ''`
+      // disables ALL tools so the claude CLI does NOT autonomously web-browse
+      // (which otherwise takes minutes + multiple turns). Empty-string arg is
+      // passed correctly here via spawn()'s args array (a shell would drop it).
+      extraArgs = ['--tools', '', '--no-session-persistence'];
+      if (system) extraArgs.push('--append-system-prompt', system);
     }
     const raw = await runClaude(prompt, { model, extraArgs, cwd, timeoutMs });
     return extractClaudeText(raw);
@@ -1152,6 +1159,32 @@ function deslugHandle(h) {
   return h.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Cross-links to the printers themselves / bundles — not spare parts.
+const NON_PART_HANDLE = /^(x1|x1c|x1-carbon|x1e|x2d|p1|p1p|p1s|p2s|a1|a1-mini|h2|h2d|h2d-pro|h2s)$|(?:-combo|-3d-printer|-printer)$/i;
+
+// Fetch one collection page and return its product handles. Retries with backoff
+// when the store returns nothing usable — the EU store rate-limits/challenges
+// request bursts, and a single empty response must NOT fail the whole Update.
+async function fetchCollectionHandles(url, attempts = 3) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const r = await fetchStoreHtml(url, { maxBytes: 1_200_000, timeoutMs: 30_000 });
+      if (r && r.text) {
+        const handles = [...new Set([...r.text.matchAll(/\/products\/([a-z0-9][a-z0-9-]{2,})/g)].map((m) => m[1]))]
+          .filter((h) => !NON_PART_HANDLE.test(h));
+        if (handles.length > 0) return handles;
+        console.warn(`[fetch-store] ${url} attempt ${i + 1}: 0 handles (likely rate-limited)`);
+      } else {
+        console.warn(`[fetch-store] ${url} attempt ${i + 1}: status ${r?.status}`);
+      }
+    } catch (err) {
+      console.warn(`[fetch-store] ${url} attempt ${i + 1} error: ${err.message}`);
+    }
+    if (i < attempts - 1) await new Promise((res) => setTimeout(res, 1200 * (i + 1)));
+  }
+  return [];
+}
+
 // Run an async fn over items with a concurrency cap (don't hammer the store).
 async function mapLimit(items, limit, fn) {
   const out = new Array(items.length);
@@ -1187,160 +1220,75 @@ async function fetchBambuProductMeta(handle) {
   return { name, price_eur: price, sku };
 }
 
-async function fetchBrandStore(brand, storeUrl, force) {
-  const isBambu = /bambu/i.test(brand);
+const PARTS_INFER_SYSTEM = `You are a 3D-printer spare-parts expert for a local supply tracker. Return ONLY a JSON object — no markdown fences, no commentary.`;
 
-  // Check cache first (unless force).
-  const cacheKey = `store:${brand.toLowerCase()}`;
+const PARTS_INFER_PROMPT = (brand, model) =>
+  `List spare parts AND consumables that are available to buy from the OFFICIAL ${brand} store for the ${brand}${model ? ' ' + model : ''} 3D printer.\n\n` +
+  `Return ONLY JSON of this shape:\n` +
+  `{ "items": [ { "name": string, "category": "hotend"|"extruder"|"motion"|"cooling"|"electronics"|"housing"|"consumable"|"ams"|"accessory", "url": string, "note": string } ] }\n\n` +
+  `Rules:\n` +
+  `- Only include items you are confident the official ${brand} store ACTUALLY SELLS for this model. This is a "what can I buy from the brand store" list — NOT a generic third-party parts list.\n` +
+  `- Include BOTH replacement parts (nozzle, hotend, build plate, belts, fans) AND consumables the store carries (glue/adhesive, PTFE tube, lubricant, spare build plate, cleaning supplies, etc.).\n` +
+  `- IF this model has a multi-material / multi-colour / auto-changer unit (e.g. Bambu AMS / AMS 2 Pro, Anycubic ACE / ACE Pro, Prusa MMU3, Mosaic Palette, Creality CFS), include that unit's purchasable parts too, in the "ams" category. If the model has no such unit, include NO "ams" items.\n` +
+  `- ALSO include any brand-specific add-ons / upgrades / extensions the official store sells for this model (e.g. spool holders, filament dryers/warmers, enclosure kits or panels, auxiliary part-cooling, hardened/upgrade kits, camera, LED kit, exhaust/air filter). Put these in the "accessory" category. Whatever specialty items THIS brand offers for THIS model — include them if the store carries them.\n` +
+  `- Tailor to THIS exact model: its nozzle type/size, plate, hotend, motion system, its multi-material unit (if any), and the brand's add-ons for it.\n` +
+  `- "url": the product page on the ${brand} store if you genuinely know it; OMIT the field if unsure — never invent a URL.\n` +
+  `- "note": a short model-specific detail or typical replacement interval, or "".\n` +
+  `- Do NOT invent SKUs or prices — omit them.\n` +
+  `- Include 15-30 items the store realistically carries.`;
+
+// Infer a make+model-tailored parts list via the AI provider. No store scraping:
+// per-model store collections are mostly empty and scraping rate-limits the IP.
+// One AI call, cached per brand|model for 24 h. No prices/SKUs (none reliably
+// available; the user opted out of prices).
+async function fetchBrandStore(brand, model, storeUrl, force) {
+  const cacheKey = `parts:${brand.toLowerCase()}|${(model || '').toLowerCase()}`;
   const cache = await readDataFile('ai-cache.json');
-  if (!force && cache && Object.prototype.hasOwnProperty.call(cache, cacheKey)) {
-    const cached = cache[cacheKey];
-    // Treat cache entry as valid for 24 h.
-    if (cached && cached.fetched_at && (Date.now() - new Date(cached.fetched_at).getTime()) < 86_400_000) {
-      return cached;
-    }
+  if (!force && cache && cache[cacheKey] && cache[cacheKey].fetched_at
+      && (Date.now() - new Date(cache[cacheKey].fetched_at).getTime()) < 86_400_000) {
+    return cache[cacheKey];
   }
 
-  // Check provider before doing any network work.
   const cfg = await getAiConfig();
   if (cfg.provider === 'none') {
     throw Object.assign(new Error('AI is disabled in settings'), { code: 'AI_DISABLED' });
   }
 
-  let combinedText = '';
-
-  if (isBambu) {
-    // Extract product handles from each collection page (prices are client-side,
-    // so we can only get names + URLs from static HTML). Dedupe across pages.
-    const COLL_LABEL = {
-      'spare-parts-for-p2s': 'P2S spare part',
-      'spare-parts-for-ams-2-pro': 'AMS 2 Pro spare part',
-      'accessories-for-p2s': 'P2S accessory',
-    };
-    const handleHint = new Map(); // handle -> collection label
-    for (const url of BAMBU_COLLECTION_URLS) {
-      let result;
-      try {
-        result = await fetchStoreHtml(url, { maxBytes: 1_200_000, timeoutMs: 30_000 });
-      } catch (err) {
-        console.warn(`[fetch-store] fetch failed for ${url}: ${err.message}`);
-        continue;
-      }
-      if (!result || !result.text) {
-        console.warn(`[fetch-store] non-200 (${result?.status}) for ${url}`);
-        continue;
-      }
-      const slug = url.split('/collections/')[1];
-      // Skip cross-links to the printers themselves / bundles — we want parts.
-      const NON_PART = /^(x1|x1c|x1-carbon|x1e|x2d|p1|p1p|p1s|p2s|a1|a1-mini|h2|h2d|h2d-pro|h2s)$|(?:-combo|-3d-printer|-printer)$/i;
-      for (const m of result.text.matchAll(/\/products\/([a-z0-9][a-z0-9-]{2,})/g)) {
-        const h = m[1];
-        if (NON_PART.test(h)) continue;
-        if (!handleHint.has(h)) handleHint.set(h, COLL_LABEL[slug] || 'P2S');
-      }
-    }
-    if (handleHint.size === 0) {
-      throw Object.assign(
-        new Error('Could not read any products from the Bambu store — try again later.'),
-        { code: 'STORE_FETCH_FAILED' },
-      );
-    }
-    // Fetch each product page (concurrency-capped) for the real name + EUR price.
-    const handleArr = [...handleHint.keys()];
-    const metas = await mapLimit(handleArr, 8, fetchBambuProductMeta);
-    const items = handleArr.map((handle, i) => {
-      const m = metas[i] || {};
-      return normaliseStoreItem({
-        name: cleanStoreName(m.name || deslugHandle(handle)),
-        sku: m.sku || undefined,
-        category: categorizeStoreHandle(handle),
-        price_eur: (typeof m.price_eur === 'number') ? m.price_eur : null,
-        url: `https://eu.store.bambulab.com/products/${handle}`,
-        note: handleHint.get(handle),
-      });
-    }).filter(Boolean);
-
-    const storeResult = {
-      brand,
-      store_url: 'https://eu.store.bambulab.com',
-      fetched_at: new Date().toISOString(),
-      source: 'ai',
-      items,
-    };
-    cache[cacheKey] = storeResult;
-    await writeDataFileAtomic('ai-cache.json', cache);
-    return storeResult;
-  } else {
-    // Generic brand path: require store_url.
-    if (!storeUrl || typeof storeUrl !== 'string' || !/^https?:\/\//i.test(storeUrl)) {
-      throw Object.assign(
-        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
-        { code: 'STORE_FETCH_FAILED' },
-      );
-    }
-    let result;
-    try {
-      result = await fetchStoreHtml(storeUrl, { maxBytes: 400_000, timeoutMs: 30_000 });
-    } catch (err) {
-      if (err.code === 'TIMEOUT') {
-        throw Object.assign(
-          new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
-          { code: 'STORE_FETCH_FAILED' },
-        );
-      }
-      throw err;
-    }
-    if (!result || !result.text) {
-      throw Object.assign(
-        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
-        { code: 'STORE_FETCH_FAILED' },
-      );
-    }
-    combinedText = reduceHtmlToText(result.text, 55_000);
-    if (combinedText.length < 50) {
-      throw Object.assign(
-        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
-        { code: 'STORE_FETCH_FAILED' },
-      );
-    }
-  }
-
-  // Send to AI dispatcher — 'text' mode (no tools needed; we already have the HTML text).
+  // Uses the user's configured model for this task. Brand-specific knowledge
+  // (which add-ons/ACE/MMU a given model has) needs a capable model — Haiku
+  // missed the Anycubic ACE entirely, so we do NOT downgrade here.
   const inner = await aiComplete({
     task: 'store_fetch',
-    prompt: STORE_FETCH_PROMPT(brand, combinedText),
-    system: STORE_FETCH_SYSTEM_PROMPT,
-    mode: 'text',
-    timeoutMs: 120_000,
+    system: PARTS_INFER_SYSTEM,
+    prompt: PARTS_INFER_PROMPT(brand, model),
+    mode: 'notools',
+    timeoutMs: 150_000,
   });
 
   let parsed;
-  try {
-    parsed = parseLooseJson(inner);
-  } catch {
-    throw Object.assign(new Error('unparseable AI response for store fetch'), { code: 'STORE_FETCH_FAILED' });
+  try { parsed = parseLooseJson(inner); }
+  catch { throw Object.assign(new Error('unparseable AI response'), { code: 'STORE_FETCH_FAILED' }); }
+
+  const rawItems = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
+  const items = rawItems.map(normaliseStoreItem).filter(Boolean);
+  if (items.length === 0) {
+    throw Object.assign(
+      new Error('The AI returned no parts for this model — try again, or add items manually.'),
+      { code: 'STORE_FETCH_FAILED' },
+    );
   }
 
-  // Coerce items array — AI must return { items: [...] }; also handle bare array.
-  const rawItems = Array.isArray(parsed?.items)
-    ? parsed.items
-    : (Array.isArray(parsed) ? parsed : []);
-
-  const items = rawItems.map(normaliseStoreItem).filter(Boolean);
-
-  const storeResult = {
+  const result = {
     brand,
-    store_url: isBambu ? BAMBU_COLLECTION_URLS[0] : (storeUrl || null),
+    model: model || null,
+    store_url: (typeof storeUrl === 'string' && /^https?:\/\//i.test(storeUrl)) ? storeUrl : null,
     fetched_at: new Date().toISOString(),
     source: 'ai',
     items,
   };
-
-  // Cache the result.
-  cache[cacheKey] = storeResult;
+  cache[cacheKey] = result;
   await writeDataFileAtomic('ai-cache.json', cache);
-
-  return storeResult;
+  return result;
 }
 // -------------------------------------------------------
 
@@ -1698,12 +1646,12 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && p === '/fetch-store') {
       const body = await readJsonBody(req);
       if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
-      const { brand, store_url, force = false } = body;
+      const { brand, model, store_url, force = false } = body;
       if (typeof brand !== 'string' || !brand.trim()) {
         return send(res, 400, { ok: false, error: 'brand required' });
       }
       try {
-        const result = await fetchBrandStore(brand.trim(), store_url, !!force);
+        const result = await fetchBrandStore(brand.trim(), (typeof model === 'string' ? model.trim() : ''), store_url, !!force);
         return send(res, 200, { ok: true, list: result });
       } catch (err) {
         if (err.code === 'AI_DISABLED') {

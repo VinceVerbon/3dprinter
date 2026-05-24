@@ -113,7 +113,7 @@ function pickItem(brand: string, item: StoreItem) {
             : 'text-slate-400 hover:text-slate-200']"
         >
           {{ brand }}
-          <span class="text-slate-500">({{ storeLists.get(brand)?.items.length ?? 0 }})</span>
+          <span class="text-slate-500">({{ storeLists.lists.filter((l) => l.brand === brand).reduce((n, l) => n + l.items.length, 0) }})</span>
         </button>
       </div>
 

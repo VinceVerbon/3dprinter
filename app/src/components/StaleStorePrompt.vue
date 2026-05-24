@@ -18,19 +18,23 @@ const { fetchStore, loading, error } = useStoreFetch()
 
 const dismissedKeys = ref<Set<string>>(new Set())
 
+// Per make+model notification key, so a stale P2S list and a stale P1S list
+// are tracked (and dismissable) independently.
+function keyForList(list: StoreList): string {
+  return notificationKey('store-stale', list.model ? `${list.brand} ${list.model}` : list.brand)
+}
+
 const target = computed<StoreList | null>(() => {
   if (!storeLists.loaded) return null
   return (
     storeLists.stale.find((list) => {
-      const key = notificationKey('store-stale', list.brand)
+      const key = keyForList(list)
       return notifications.isActive(key) && !dismissedKeys.value.has(key)
     }) ?? null
   )
 })
 
-const targetKey = computed(() =>
-  target.value ? notificationKey('store-stale', target.value.brand) : null,
-)
+const targetKey = computed(() => (target.value ? keyForList(target.value) : null))
 
 const ageDaysRounded = computed(() =>
   target.value ? Math.round(storeLists.ageDays(target.value)) : 0,
@@ -53,7 +57,7 @@ const storeUrl = computed<string | undefined>(() => {
  *  resets, so it will no longer be in storeLists.stale → prompt disappears. */
 async function handleUpdate() {
   if (!target.value || loading.value) return
-  await fetchStore(target.value.brand, storeUrl.value, true)
+  await fetchStore(target.value.brand, target.value.model ?? undefined, storeUrl.value, true)
   // On success: error.value stays null, storeLists.stale no longer includes
   // this list (fetched_at was reset by useStoreFetch → upsert). `target`
   // recomputes automatically. No manual dismiss needed.
@@ -101,9 +105,9 @@ onMounted(async () => {
 
       <!-- Body -->
       <p class="mt-3 text-sm text-slate-300">
-        The <span class="text-slate-100 font-medium">{{ target.brand }}</span> store list is
+        The <span class="text-slate-100 font-medium">{{ target.brand }}<template v-if="target.model"> {{ target.model }}</template></span> parts list is
         <span class="text-amber-300 font-medium">{{ ageDaysRounded }} days old</span>.
-        Update it now to get current prices, new products, and P2S-relevant replacements?
+        Update it now to refresh the parts for this model?
       </p>
 
       <!-- Inline fetch error -->

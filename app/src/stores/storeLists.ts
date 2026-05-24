@@ -9,8 +9,10 @@ import { loadData, saveData } from '../composables/useDataPersistence'
 const FILE = 'store-lists.json'
 export const STALE_DAYS = 30
 
-function brandKey(brand: string): string {
-  return brand.trim().toLowerCase()
+// Lists are keyed per make+model (a P2S list differs from a P1S list). Falls
+// back to brand-only when a model isn't given.
+function listKey(brand: string, model?: string | null): string {
+  return `${brand.trim().toLowerCase()}|${(model ?? '').trim().toLowerCase()}`
 }
 
 export const useStoreListsStore = defineStore('storeLists', () => {
@@ -28,19 +30,19 @@ export const useStoreListsStore = defineStore('storeLists', () => {
     return saveData(FILE, lists.value)
   }
 
-  function get(brand: string): StoreList | undefined {
-    return lists.value.find((l) => brandKey(l.brand) === brandKey(brand))
+  function get(brand: string, model?: string | null): StoreList | undefined {
+    return lists.value.find((l) => listKey(l.brand, l.model) === listKey(brand, model))
   }
 
-  /** Insert or replace the list for a brand (matched case-insensitively). */
+  /** Insert or replace the list for a make+model (matched case-insensitively). */
   function upsert(list: StoreList) {
-    const i = lists.value.findIndex((l) => brandKey(l.brand) === brandKey(list.brand))
+    const i = lists.value.findIndex((l) => listKey(l.brand, l.model) === listKey(list.brand, list.model))
     if (i >= 0) lists.value[i] = list
     else lists.value.push(list)
   }
 
-  function remove(brand: string) {
-    lists.value = lists.value.filter((l) => brandKey(l.brand) !== brandKey(brand))
+  function remove(brand: string, model?: string | null) {
+    lists.value = lists.value.filter((l) => listKey(l.brand, l.model) !== listKey(brand, model))
   }
 
   /** Age of a list in days; Infinity if it has no/invalid timestamp. */
@@ -53,7 +55,7 @@ export const useStoreListsStore = defineStore('storeLists', () => {
     return ageDays(list) > days
   }
 
-  const brands = computed(() => lists.value.map((l) => l.brand))
+  const brands = computed(() => [...new Set(lists.value.map((l) => l.brand))])
   const count = computed(() => lists.value.length)
   /** Lists past the staleness threshold — candidates for an "update?" prompt. */
   const stale = computed(() => lists.value.filter((l) => isStale(l)))

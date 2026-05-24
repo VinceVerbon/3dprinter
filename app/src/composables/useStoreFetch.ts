@@ -18,7 +18,7 @@ export function useStoreFetch() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchStore(brand: string, storeUrl?: string, force = false): Promise<StoreList | null> {
+  async function fetchStore(brand: string, model?: string, storeUrl?: string, force = false): Promise<StoreList | null> {
     if (loading.value) return null
     loading.value = true
     error.value = null
@@ -26,7 +26,7 @@ export function useStoreFetch() {
       const r = await fetch('/api/fetch-store', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ brand, store_url: storeUrl, force }),
+        body: JSON.stringify({ brand, model, store_url: storeUrl, force }),
       })
       const body = await r.json().catch(() => null)
       if (!r.ok || !body?.ok) throw new Error(body?.error || `HTTP ${r.status}`)

@@ -248,6 +248,7 @@ export interface StoreItem {
  *  entry per brand. `fetched_at` drives the >30-day staleness prompt. */
 export interface StoreList {
   brand: string                // e.g. "Bambu Lab"
+  model?: string | null        // tailored per make+model (e.g. "P2S"); null = brand-wide
   store_url?: string           // brand store page this was sourced from
   fetched_at: string           // ISO timestamp of the last fetch (staleness clock)
   source: 'ai' | 'manual'
