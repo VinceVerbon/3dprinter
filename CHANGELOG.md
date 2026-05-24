@@ -4,6 +4,12 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-24
+
+### Fixed
+- **Brand-store "Update store" failed with "fetch failed: not found."** The helper registered the fetch route as `/api/fetch-store`, but the dev/preview proxy strips the `/api` prefix before forwarding (every other helper route omits it), so the real proxied request `/fetch-store` matched no route → 404. Renamed the route to `/fetch-store`. The v0.6.0 brand-store fetch was non-functional through the UI; verified fixed end-to-end (proxy returns 72 items; the "Add from store list" picker renders them with prices).
+- **A corrupt `store-lists.json` no longer blanks the Shopping page.** `useStoreListsStore.load()` now coerces a non-array payload to `[]` instead of letting `.find`/`.map`/`.filter` throw and break the route render.
+
 ## [0.6.0] — 2026-05-24
 
 ### Added

@@ -1695,7 +1695,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true, copied, skipped, user_data_dir: USER_DATA_DIR });
     }
 
-    if (req.method === 'POST' && p === '/api/fetch-store') {
+    if (req.method === 'POST' && p === '/fetch-store') {
       const body = await readJsonBody(req);
       if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
       const { brand, store_url, force = false } = body;

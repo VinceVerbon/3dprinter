@@ -18,7 +18,10 @@ export const useStoreListsStore = defineStore('storeLists', () => {
   const loaded = ref(false)
 
   async function load() {
-    lists.value = await loadData<StoreList[]>(FILE, [])
+    const data = await loadData<StoreList[]>(FILE, [])
+    // Guard against a malformed/corrupt file: a non-array would make every
+    // .find/.map/.filter below throw and blank the page. Degrade to empty.
+    lists.value = Array.isArray(data) ? data : []
     loaded.value = true
   }
   async function save() {
