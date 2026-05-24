@@ -1,43 +1,112 @@
 <script setup lang="ts">
 import { onMounted, ref, onBeforeUnmount, computed } from 'vue'
 import { useShoppingStore } from '../stores/shopping'
-import { useCatalogStore } from '../stores/catalog'
+import { useStoreListsStore } from '../stores/storeLists'
+import { usePrintersStore } from '../stores/printers'
+import { useStoreFetch } from '../composables/useStoreFetch'
 import type { ShoppingItem } from '../types'
-import { Plus, Trash2, Printer, Eraser, BookOpen } from 'lucide-vue-next'
+import { Plus, Trash2, Printer, Eraser, BookOpen, RefreshCw } from 'lucide-vue-next'
 import CatalogPicker from '../components/CatalogPicker.vue'
 
 const store = useShoppingStore()
-const catalog = useCatalogStore()
+const storeLists = useStoreListsStore()
+const printersStore = usePrintersStore()
+const { fetchStore, loading: fetchLoading, error: fetchError } = useStoreFetch()
+
 const newLabel = ref('')
 const newQty = ref(1)
 const saving = ref(false)
 const message = ref<string | null>(null)
 const showPicker = ref(false)
 
+// Brand-store panel state
+/** The brand currently selected in the "Update store" panel */
+const selectedBrand = ref<string>('')
+/** Editable store URL for the selected brand (prefilled from printer's store_url) */
+const editableStoreUrl = ref<string>('')
+/** Filter: '' = show items from all owned stores */
+const storeFilter = ref<string>('')
+
 onMounted(async () => {
-  await Promise.all([store.load(), catalog.load()])
-  await backfillPricesFromCatalog()
+  await Promise.all([store.load(), storeLists.load(), printersStore.load()])
+  // Seed the brand selector with the active printer's brand (if any)
+  const activeBrand = printersStore.active?.brand ?? ''
+  if (activeBrand) {
+    selectedBrand.value = activeBrand
+    editableStoreUrl.value = storeUrlForBrand(activeBrand)
+  } else if (ownedBrands.value.length > 0) {
+    selectedBrand.value = ownedBrands.value[0]
+    editableStoreUrl.value = storeUrlForBrand(ownedBrands.value[0])
+  }
 })
 
-async function backfillPricesFromCatalog() {
-  let changed = 0
-  for (const item of store.items) {
-    if (item.unit_price_eur != null) continue
-    if (item.source_type !== 'replacement_part' || !item.source_id) continue
-    const part = catalog.parts.find(p => p.id === item.source_id)
-    if (part?.price_eur_estimate != null) {
-      store.update(item.id, { unit_price_eur: part.price_eur_estimate })
-      changed++
-    }
+// ---------------------------------------------------------------------------
+// Derived brand/store data
+// ---------------------------------------------------------------------------
+
+/** Unique brands across all configured printers */
+const ownedBrands = computed<string[]>(() => {
+  const seen = new Set<string>()
+  for (const p of printersStore.printers) {
+    if (p.brand) seen.add(p.brand)
   }
-  if (changed > 0) {
-    const r = await store.save()
-    message.value = r.ok
-      ? `Backfilled prices on ${changed} item${changed === 1 ? '' : 's'} from catalog.`
-      : 'Backfill done locally; save failed.'
-    setTimeout(() => (message.value = null), 4000)
-  }
+  // Also include any brands already in storeLists (fetched previously)
+  for (const b of storeLists.brands) seen.add(b)
+  return [...seen]
+})
+
+// Known EU store bases per brand — used so the prefill is the actual shop, not
+// a printer product page (the owned printer's store_url is often a US/model
+// page, e.g. us.store.bambulab.com/products/p1s, which isn't where parts live).
+const BRAND_STORE_BASE: Record<string, string> = {
+  'bambu lab': 'https://eu.store.bambulab.com',
 }
+
+function storeUrlForBrand(brand: string): string {
+  // 1) an already-fetched list's canonical url (helper returns the right base),
+  // 2) a known EU brand store base, 3) the owned printer's store_url (last
+  // resort — may be a US/product page), else ''.
+  const fetched = storeLists.get(brand)?.store_url
+  if (fetched) return fetched
+  const base = BRAND_STORE_BASE[brand.trim().toLowerCase()]
+  if (base) return base
+  const printer = printersStore.printers.find(
+    (p) => p.brand.toLowerCase() === brand.toLowerCase(),
+  )
+  return printer?.store_url ?? ''
+}
+
+function onBrandChange(brand: string) {
+  selectedBrand.value = brand
+  editableStoreUrl.value = storeUrlForBrand(brand)
+}
+
+const selectedList = computed(() =>
+  selectedBrand.value ? storeLists.get(selectedBrand.value) : undefined,
+)
+
+const ageLabel = computed<string>(() => {
+  const list = selectedList.value
+  if (!list) return ''
+  const days = storeLists.ageDays(list)
+  if (!isFinite(days)) return 'unknown age'
+  if (days < 1) return 'updated today'
+  if (days < 2) return 'updated yesterday'
+  return `updated ${Math.floor(days)} day${Math.floor(days) !== 1 ? 's' : ''} ago`
+})
+
+const isStale = computed(() =>
+  selectedList.value ? storeLists.isStale(selectedList.value) : false,
+)
+
+async function doFetch() {
+  if (!selectedBrand.value) return
+  await fetchStore(selectedBrand.value, editableStoreUrl.value || undefined, true)
+}
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
@@ -48,7 +117,11 @@ async function persist() {
   saving.value = true
   const r = await store.save()
   saving.value = false
-  message.value = r.ok ? 'Saved.' : (r.offlineFallback ? 'Helper offline — saved to localStorage.' : 'Save failed.')
+  message.value = r.ok
+    ? 'Saved.'
+    : r.offlineFallback
+      ? 'Helper offline — saved to localStorage.'
+      : 'Save failed.'
   setTimeout(() => (message.value = null), 4000)
 }
 
@@ -68,10 +141,16 @@ async function add() {
   await persist()
 }
 
-async function addFromCatalog(picked: { source_type: 'replacement_part' | 'consumable'; source_id: string; label: string; notes?: string; unit_price_eur?: number }) {
+async function addFromCatalog(picked: {
+  source_type: 'replacement_part'
+  source_id: string
+  label: string
+  notes?: string
+  unit_price_eur?: number
+}) {
   const item: ShoppingItem = {
     id: uuid(),
-    source_type: picked.source_type,
+    source_type: 'replacement_part',
     source_id: picked.source_id,
     label: picked.label,
     quantity: 1,
@@ -92,14 +171,25 @@ function fmtEur(v: number): string {
   return '€' + v.toFixed(2)
 }
 
+/** Items to display, optionally filtered to one brand-store's source_ids */
+const filteredItems = computed(() => {
+  if (!storeFilter.value) return store.items
+  const list = storeLists.get(storeFilter.value)
+  if (!list) return store.items
+  const ids = new Set(list.items.map((i) => `${list.brand}|${i.name}`))
+  return store.items.filter(
+    (i) => i.source_type === 'replacement_part' && i.source_id && ids.has(i.source_id),
+  )
+})
+
 const openTotalPriced = computed(() =>
-  store.open.reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
+  filteredItems.value.filter((i) => !i.done).reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
 )
 const openUnpricedCount = computed(() =>
-  store.open.filter(i => i.unit_price_eur == null).length,
+  filteredItems.value.filter((i) => !i.done && i.unit_price_eur == null).length,
 )
 const doneTotalPriced = computed(() =>
-  store.done.reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
+  filteredItems.value.filter((i) => i.done).reduce((sum, i) => sum + (lineTotal(i) ?? 0), 0),
 )
 
 async function toggle(id: string) {
@@ -154,15 +244,92 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </div>
     </header>
 
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Brand-store panel                                                   -->
+    <!-- ------------------------------------------------------------------ -->
+    <div class="mb-4 border border-slate-800 rounded-lg bg-slate-900/40 print:hidden">
+      <div class="px-3 py-2 border-b border-slate-800 flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400 font-medium shrink-0">Brand store</span>
+
+        <!-- Brand selector -->
+        <select
+          v-if="ownedBrands.length > 0"
+          :value="selectedBrand"
+          @change="onBrandChange(($event.target as HTMLSelectElement).value)"
+          class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-sm text-slate-200"
+        >
+          <option v-for="b in ownedBrands" :key="b" :value="b">{{ b }}</option>
+        </select>
+        <span v-else class="text-xs text-slate-500">No printers configured — add one in the Printers tab first.</span>
+
+        <!-- Age / staleness indicator -->
+        <span
+          v-if="selectedList"
+          class="ml-auto text-xs"
+          :class="isStale ? 'text-amber-400' : 'text-slate-500'"
+        >
+          {{ ageLabel }}<template v-if="isStale"> — stale</template>
+        </span>
+        <span v-else-if="selectedBrand" class="ml-auto text-xs text-slate-500">No list yet</span>
+      </div>
+
+      <div class="px-3 py-2 flex items-start gap-2 flex-wrap">
+        <!-- Editable store URL -->
+        <input
+          v-model="editableStoreUrl"
+          placeholder="Store URL (optional)"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300"
+          :disabled="!selectedBrand"
+        />
+        <!-- Update button -->
+        <button
+          @click="doFetch"
+          :disabled="!selectedBrand || fetchLoading"
+          class="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-sky-700 hover:bg-sky-600 disabled:opacity-40 shrink-0"
+        >
+          <RefreshCw :size="12" :class="{ 'animate-spin': fetchLoading }" />
+          {{ fetchLoading ? 'Fetching…' : 'Update store' }}
+        </button>
+      </div>
+
+      <!-- Fetch error -->
+      <div v-if="fetchError" class="px-3 pb-2 text-xs text-red-400">
+        Fetch failed: {{ fetchError }}. Try again, or add items manually with free text below.
+      </div>
+
+      <!-- Empty state for selected brand -->
+      <div
+        v-if="selectedBrand && !selectedList && !fetchLoading && !fetchError"
+        class="px-3 pb-2 text-xs text-slate-500"
+      >
+        No store list yet — click <strong class="text-slate-300">Update store</strong> to fetch, or add items manually below.
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Toolbar: store filter + add-from-catalog + free-text               -->
+    <!-- ------------------------------------------------------------------ -->
     <p v-if="message" class="text-xs text-slate-400 mb-2 print:hidden">{{ message }}</p>
 
-    <div class="flex gap-2 mb-2 print:hidden">
+    <div class="flex gap-2 mb-2 print:hidden flex-wrap items-center">
       <button
         @click="showPicker = true"
         class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
       >
-        <BookOpen :size="14" /> Add from catalog
+        <BookOpen :size="14" /> Add from store list
       </button>
+
+      <!-- Per-store filter: only visible when at least one list exists -->
+      <template v-if="storeLists.count > 0">
+        <span class="text-xs text-slate-500">Show:</span>
+        <select
+          v-model="storeFilter"
+          class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300"
+        >
+          <option value="">All items</option>
+          <option v-for="b in storeLists.brands" :key="b" :value="b">{{ b }} store only</option>
+        </select>
+      </template>
     </div>
 
     <form
@@ -189,13 +356,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </button>
     </form>
 
-    <div v-if="store.items.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg print:hidden">
-      Empty list. Add from catalog or type a free-text item above.
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Shopping list                                                       -->
+    <!-- ------------------------------------------------------------------ -->
+    <div v-if="filteredItems.length === 0" class="text-slate-500 text-sm py-8 text-center border border-dashed border-slate-800 rounded-lg print:hidden">
+      <template v-if="storeFilter">
+        No items from the <strong class="text-slate-300">{{ storeFilter }}</strong> store in your list yet.
+        <a class="text-sky-400 hover:underline cursor-pointer" @click="storeFilter = ''">Show all items</a> or
+        <a class="text-sky-400 hover:underline cursor-pointer" @click="showPicker = true">add from store list</a>.
+      </template>
+      <template v-else>
+        Empty list. Add from store list or type a free-text item above.
+      </template>
     </div>
 
     <ul v-else class="grid gap-1.5">
       <li
-        v-for="item in store.items"
+        v-for="item in filteredItems"
         :key="item.id"
         class="flex items-center gap-2 px-3 py-2 border border-slate-800 rounded bg-slate-900/40"
         :class="{ 'opacity-50': item.done }"
@@ -224,21 +401,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     </ul>
 
     <footer
-      v-if="store.items.length > 0"
+      v-if="filteredItems.length > 0"
       class="mt-3 px-3 py-2 border border-slate-800 rounded bg-slate-900/40 text-sm flex items-center justify-between gap-3"
     >
       <div class="text-slate-400">
         <span class="text-slate-200 font-medium">Estimated total</span>
-        <span v-if="openUnpricedCount > 0" class="text-xs text-slate-500"> &middot; {{ openUnpricedCount }} item<template v-if="openUnpricedCount !== 1">s</template> without price not counted</span>
+        <span v-if="openUnpricedCount > 0" class="text-xs text-slate-500">
+          &middot; {{ openUnpricedCount }} item<template v-if="openUnpricedCount !== 1">s</template> without price not counted
+        </span>
+        <span v-if="storeFilter" class="text-xs text-slate-500"> &middot; {{ storeFilter }} store only</span>
       </div>
       <div class="text-right tabular-nums">
         <div class="text-base text-slate-100 font-semibold">{{ fmtEur(openTotalPriced) }}</div>
-        <div v-if="store.done.length > 0" class="text-xs text-slate-500">+ {{ fmtEur(doneTotalPriced) }} already checked off</div>
+        <div v-if="filteredItems.some(i => i.done)" class="text-xs text-slate-500">+ {{ fmtEur(doneTotalPriced) }} already checked off</div>
       </div>
     </footer>
 
     <p class="text-xs text-slate-500 mt-4 print:hidden">
-      Tip: open this on your phone via the same Wi-Fi at <code class="text-slate-300">http://&lt;your-pc-ip&gt;:5173/#/shopping</code>, or use Print → Save as PDF for an offline checklist. Prices are estimates snapshotted from the catalog at the moment you added each item.
+      Tip: open this on your phone via the same Wi-Fi at <code class="text-slate-300">http://&lt;your-pc-ip&gt;:5173/#/shopping</code>, or use Print → Save as PDF for an offline checklist. Prices are estimates snapshotted at the moment you added each item.
     </p>
 
     <CatalogPicker

@@ -991,6 +991,359 @@ async function lookupFilament(brand, name, force) {
   return { cached: false, result: parsed };
 }
 
+// ---------------- Brand store fetcher ----------------
+// Fetches a brand's online store and returns a structured list of items.
+// Bambu path: fetches P2S/AMS-2-Pro/Accessories collection pages from
+//   eu.store.bambulab.com using Node's global fetch with a browser UA header.
+//   The store returns HTTP 200 from this machine (residential IP) but HTTP 402
+//   to cloud/datacenter IPs, so we must NOT route this through the claude CLI's
+//   WebFetch — we do the fetch ourselves right here.
+// Generic path: if store_url is given, fetch it the same way and AI-extract.
+
+const STORE_BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+// Fetch a URL via Node global fetch with a browser UA. Returns the response
+// text on 200, or null/throws on failure. Limits body to maxBytes to protect
+// against enormous pages; never throws uncaught.
+async function fetchStoreHtml(url, { maxBytes = 500_000, timeoutMs = 30_000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': STORE_BROWSER_UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,nl;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw Object.assign(new Error('timeout'), { code: 'TIMEOUT' });
+    throw err;
+  }
+  clearTimeout(timer);
+  if (!res.ok) return { text: null, status: res.status };
+  // Stream into a buffer, capping at maxBytes to avoid sending a 2 MB page to the AI.
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      total += value.length;
+      if (total >= maxBytes) { reader.cancel().catch(() => {}); break; }
+    }
+  }
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+  return { text: buf.toString('utf8'), status: res.status };
+}
+
+// Strip HTML down to product-listing text only.
+// Removes <script>, <style>, <head>, <nav>, <header>, <footer>, <svg>
+// blocks entirely (including content), then strips remaining tags,
+// collapses whitespace, and caps the result at capChars.
+function reduceHtmlToText(html, capChars = 55_000) {
+  let s = html;
+  // Remove large block-level elements that carry no product info.
+  // Use non-greedy matching; the [\s\S]*? handles multi-line blocks.
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  s = s.replace(/<svg[\s\S]*?<\/svg>/gi, ' ');
+  s = s.replace(/<head[\s\S]*?<\/head>/gi, ' ');
+  s = s.replace(/<nav[\s\S]*?<\/nav>/gi, ' ');
+  s = s.replace(/<header[\s\S]*?<\/header>/gi, ' ');
+  s = s.replace(/<footer[\s\S]*?<\/footer>/gi, ' ');
+  // Decode a few common HTML entities before stripping tags.
+  s = s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
+  // Strip remaining tags.
+  s = s.replace(/<[^>]+>/g, ' ');
+  // Collapse runs of whitespace.
+  s = s.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return s.length > capChars ? s.slice(0, capChars) : s;
+}
+
+const STORE_FETCH_SYSTEM_PROMPT = `You are the store-catalog extraction backend of a local 3D-printer supply tracker. The user has asked you to extract a structured product list from an online store's HTML text. Output ONLY a JSON object. No markdown fences, no commentary.`;
+
+const STORE_FETCH_PROMPT = (brand, combinedText) =>
+`Extract the product listing from this ${brand} store HTML text and return a JSON object.
+
+Store text (cleaned HTML, may be truncated):
+---
+${combinedText}
+---
+
+Return ONLY this JSON shape — no prose, no markdown fences:
+
+{
+  "items": [
+    {
+      "name": "string (required — product name exactly as shown)",
+      "sku": "string or null — only if you can see an actual SKU/part-number; NEVER invent one",
+      "category": "one of: hotend|extruder|motion|cooling|electronics|housing|consumable|ams|accessory",
+      "price_eur": number or null — numeric price in EUR if clearly shown; NEVER invent a price,
+      "url": "absolute URL to the product page, or null",
+      "note": "one-line note about compatibility / specifications, or null"
+    }
+  ]
+}
+
+Rules:
+- Include P2S/AMS-2-Pro-relevant hardware parts and consumables only.
+- EXCLUDE all filaments (spools, rolls, refills).
+- NEVER invent a SKU — set sku to null if you're not certain.
+- NEVER invent a price — set price_eur to null if the price is not clearly shown.
+- category must be one of the listed values; pick the closest match.
+- Drop entries that have no recognisable name.
+- If there are no relevant items, return { "items": [] }.`;
+
+// Normalise a single raw item from the AI into a clean StoreItem shape.
+function normaliseStoreItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = typeof raw.name === 'string' ? raw.name.trim() : null;
+  if (!name) return null;
+  const VALID_CATEGORIES = new Set(['hotend', 'extruder', 'motion', 'cooling', 'electronics', 'housing', 'consumable', 'ams', 'accessory']);
+  const item = { name };
+  if (typeof raw.sku === 'string' && raw.sku.trim()) item.sku = raw.sku.trim();
+  if (typeof raw.category === 'string' && VALID_CATEGORIES.has(raw.category)) item.category = raw.category;
+  if (typeof raw.price_eur === 'number' && Number.isFinite(raw.price_eur) && raw.price_eur >= 0) item.price_eur = raw.price_eur;
+  if (typeof raw.url === 'string' && raw.url.trim() && /^https?:\/\//i.test(raw.url.trim())) item.url = raw.url.trim();
+  if (typeof raw.note === 'string' && raw.note.trim()) item.note = raw.note.trim();
+  return item;
+}
+
+// Bambu EU collection URLs for P2S and AMS-2-Pro hardware.
+const BAMBU_COLLECTION_URLS = [
+  'https://eu.store.bambulab.com/collections/spare-parts-for-p2s',
+  'https://eu.store.bambulab.com/collections/spare-parts-for-ams-2-pro',
+  'https://eu.store.bambulab.com/collections/accessories-for-p2s',
+];
+
+// Bambu's EU store renders prices client-side, so static HTML yields product
+// handles (→ names + URLs) but NOT prices. We extract handles ourselves and
+// categorise them by keyword — fast, free, deterministic, no hallucinated
+// SKUs/prices and no slow per-item AI call. Prices stay null until a reseller
+// price overlay is added. (Generic non-Bambu brands still use the AI extractor.)
+function categorizeStoreHandle(handle) {
+  const s = handle.toLowerCase();
+  if (/\bams\b|ams-/.test(s)) return 'ams';
+  if (/clean|sponge|wipe|brush/.test(s)) return 'consumable';
+  if (/nozzle|hotend|heatbreak|heater-?core|thermistor|silicone-sock/.test(s)) return 'hotend';
+  if (/extruder|gear|feeder/.test(s)) return 'extruder';
+  if (/belt|pulley|motor|stepper|carriage|rail|rod|lead-?screw|tensioner/.test(s)) return 'motion';
+  if (/\bfan\b|cooling|duct|air-?(filter|inlet)|filter-?(unit|cover)/.test(s)) return 'cooling';
+  if (/board|cable|wire|sensor|switch|psu|power|screen|display|antenna|camera|module/.test(s)) return 'electronics';
+  if (/panel|cover|door|glass|frame|housing|shell|enclosure|base-?plate|lid/.test(s)) return 'housing';
+  if (/desiccant|ptfe|glue|sponge|scraper|cutter|blade|lubricant|grease|cleaning|wipe|pad|tube|plate/.test(s)) return 'consumable';
+  return 'accessory';
+}
+function cleanStoreName(name) {
+  return name
+    .replace(/\bPtfe\b/g, 'PTFE').replace(/\bAms\b/g, 'AMS').replace(/\bPei\b/g, 'PEI')
+    .replace(/\bIi\b/g, 'II').replace(/\bP2s\b/gi, 'P2S').replace(/\bH2d\b/gi, 'H2D')
+    .replace(/\b(\d+)\s+Pcs\b/g, '($1 pcs)').replace(/\bPcs\b/g, 'pcs');
+}
+function deslugHandle(h) {
+  return h.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Run an async fn over items with a concurrency cap (don't hammer the store).
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+// Bambu's EU store is a Next.js app: collection pages have no prices, but each
+// PRODUCT page embeds schema.org data with the real name + EUR price (+ SKU).
+// Pull those out by regex. Returns nulls on any failure (caller falls back to
+// the handle-derived name with a null price).
+async function fetchBambuProductMeta(handle) {
+  let html;
+  try {
+    const r = await fetchStoreHtml(`https://eu.store.bambulab.com/products/${handle}`, { maxBytes: 1_200_000, timeoutMs: 15_000 });
+    if (!r || !r.text) return null;
+    html = r.text;
+  } catch { return null; }
+  let price = null;
+  const pm = html.match(/"priceCurrency"\s*:\s*"EUR"\s*,\s*"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/);
+  if (pm) { const n = parseFloat(pm[1]); if (Number.isFinite(n) && n >= 0) price = n; }
+  let name = null;
+  const nm = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<title>([^<]+)<\/title>/i);
+  if (nm) name = nm[1].replace(/\s*[|–—-]\s*Bambu Lab.*$/i, '').trim();
+  let sku = null;
+  const sm = html.match(/"sku"\s*:\s*"([^"]{2,})"/);
+  if (sm) sku = sm[1];
+  return { name, price_eur: price, sku };
+}
+
+async function fetchBrandStore(brand, storeUrl, force) {
+  const isBambu = /bambu/i.test(brand);
+
+  // Check cache first (unless force).
+  const cacheKey = `store:${brand.toLowerCase()}`;
+  const cache = await readDataFile('ai-cache.json');
+  if (!force && cache && Object.prototype.hasOwnProperty.call(cache, cacheKey)) {
+    const cached = cache[cacheKey];
+    // Treat cache entry as valid for 24 h.
+    if (cached && cached.fetched_at && (Date.now() - new Date(cached.fetched_at).getTime()) < 86_400_000) {
+      return cached;
+    }
+  }
+
+  // Check provider before doing any network work.
+  const cfg = await getAiConfig();
+  if (cfg.provider === 'none') {
+    throw Object.assign(new Error('AI is disabled in settings'), { code: 'AI_DISABLED' });
+  }
+
+  let combinedText = '';
+
+  if (isBambu) {
+    // Extract product handles from each collection page (prices are client-side,
+    // so we can only get names + URLs from static HTML). Dedupe across pages.
+    const COLL_LABEL = {
+      'spare-parts-for-p2s': 'P2S spare part',
+      'spare-parts-for-ams-2-pro': 'AMS 2 Pro spare part',
+      'accessories-for-p2s': 'P2S accessory',
+    };
+    const handleHint = new Map(); // handle -> collection label
+    for (const url of BAMBU_COLLECTION_URLS) {
+      let result;
+      try {
+        result = await fetchStoreHtml(url, { maxBytes: 1_200_000, timeoutMs: 30_000 });
+      } catch (err) {
+        console.warn(`[fetch-store] fetch failed for ${url}: ${err.message}`);
+        continue;
+      }
+      if (!result || !result.text) {
+        console.warn(`[fetch-store] non-200 (${result?.status}) for ${url}`);
+        continue;
+      }
+      const slug = url.split('/collections/')[1];
+      // Skip cross-links to the printers themselves / bundles — we want parts.
+      const NON_PART = /^(x1|x1c|x1-carbon|x1e|x2d|p1|p1p|p1s|p2s|a1|a1-mini|h2|h2d|h2d-pro|h2s)$|(?:-combo|-3d-printer|-printer)$/i;
+      for (const m of result.text.matchAll(/\/products\/([a-z0-9][a-z0-9-]{2,})/g)) {
+        const h = m[1];
+        if (NON_PART.test(h)) continue;
+        if (!handleHint.has(h)) handleHint.set(h, COLL_LABEL[slug] || 'P2S');
+      }
+    }
+    if (handleHint.size === 0) {
+      throw Object.assign(
+        new Error('Could not read any products from the Bambu store — try again later.'),
+        { code: 'STORE_FETCH_FAILED' },
+      );
+    }
+    // Fetch each product page (concurrency-capped) for the real name + EUR price.
+    const handleArr = [...handleHint.keys()];
+    const metas = await mapLimit(handleArr, 8, fetchBambuProductMeta);
+    const items = handleArr.map((handle, i) => {
+      const m = metas[i] || {};
+      return normaliseStoreItem({
+        name: cleanStoreName(m.name || deslugHandle(handle)),
+        sku: m.sku || undefined,
+        category: categorizeStoreHandle(handle),
+        price_eur: (typeof m.price_eur === 'number') ? m.price_eur : null,
+        url: `https://eu.store.bambulab.com/products/${handle}`,
+        note: handleHint.get(handle),
+      });
+    }).filter(Boolean);
+
+    const storeResult = {
+      brand,
+      store_url: 'https://eu.store.bambulab.com',
+      fetched_at: new Date().toISOString(),
+      source: 'ai',
+      items,
+    };
+    cache[cacheKey] = storeResult;
+    await writeDataFileAtomic('ai-cache.json', cache);
+    return storeResult;
+  } else {
+    // Generic brand path: require store_url.
+    if (!storeUrl || typeof storeUrl !== 'string' || !/^https?:\/\//i.test(storeUrl)) {
+      throw Object.assign(
+        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
+        { code: 'STORE_FETCH_FAILED' },
+      );
+    }
+    let result;
+    try {
+      result = await fetchStoreHtml(storeUrl, { maxBytes: 400_000, timeoutMs: 30_000 });
+    } catch (err) {
+      if (err.code === 'TIMEOUT') {
+        throw Object.assign(
+          new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
+          { code: 'STORE_FETCH_FAILED' },
+        );
+      }
+      throw err;
+    }
+    if (!result || !result.text) {
+      throw Object.assign(
+        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
+        { code: 'STORE_FETCH_FAILED' },
+      );
+    }
+    combinedText = reduceHtmlToText(result.text, 55_000);
+    if (combinedText.length < 50) {
+      throw Object.assign(
+        new Error(`Couldn't fetch the ${brand} store automatically — add items manually.`),
+        { code: 'STORE_FETCH_FAILED' },
+      );
+    }
+  }
+
+  // Send to AI dispatcher — 'text' mode (no tools needed; we already have the HTML text).
+  const inner = await aiComplete({
+    task: 'store_fetch',
+    prompt: STORE_FETCH_PROMPT(brand, combinedText),
+    system: STORE_FETCH_SYSTEM_PROMPT,
+    mode: 'text',
+    timeoutMs: 120_000,
+  });
+
+  let parsed;
+  try {
+    parsed = parseLooseJson(inner);
+  } catch {
+    throw Object.assign(new Error('unparseable AI response for store fetch'), { code: 'STORE_FETCH_FAILED' });
+  }
+
+  // Coerce items array — AI must return { items: [...] }; also handle bare array.
+  const rawItems = Array.isArray(parsed?.items)
+    ? parsed.items
+    : (Array.isArray(parsed) ? parsed : []);
+
+  const items = rawItems.map(normaliseStoreItem).filter(Boolean);
+
+  const storeResult = {
+    brand,
+    store_url: isBambu ? BAMBU_COLLECTION_URLS[0] : (storeUrl || null),
+    fetched_at: new Date().toISOString(),
+    source: 'ai',
+    items,
+  };
+
+  // Cache the result.
+  cache[cacheKey] = storeResult;
+  await writeDataFileAtomic('ai-cache.json', cache);
+
+  return storeResult;
+}
+// -------------------------------------------------------
+
 const server = createServer(async (req, res) => {
   try {
     res._reqOrigin = req.headers.origin;
@@ -1340,6 +1693,32 @@ const server = createServer(async (req, res) => {
         }
       }
       return send(res, 200, { ok: true, copied, skipped, user_data_dir: USER_DATA_DIR });
+    }
+
+    if (req.method === 'POST' && p === '/api/fetch-store') {
+      const body = await readJsonBody(req);
+      if (body == null) return send(res, 400, { ok: false, error: 'invalid json' });
+      const { brand, store_url, force = false } = body;
+      if (typeof brand !== 'string' || !brand.trim()) {
+        return send(res, 400, { ok: false, error: 'brand required' });
+      }
+      try {
+        const result = await fetchBrandStore(brand.trim(), store_url, !!force);
+        return send(res, 200, { ok: true, list: result });
+      } catch (err) {
+        if (err.code === 'AI_DISABLED') {
+          return send(res, 200, { ok: false, error: 'AI provider is set to None — add store items manually.' });
+        }
+        if (err.code === 'NO_API_KEY') return send(res, 400, { ok: false, error: 'no_api_key' });
+        if (err.code === 'TIMEOUT' || err.message === 'timeout') {
+          return send(res, 504, { ok: false, error: 'timeout' });
+        }
+        if (err.code === 'STORE_FETCH_FAILED') {
+          return send(res, 200, { ok: false, error: err.message });
+        }
+        console.error('fetch-store error:', err);
+        return send(res, 500, { ok: false, error: err.message || 'internal' });
+      }
     }
 
     return send(res, 404, { ok: false, error: 'not found' });

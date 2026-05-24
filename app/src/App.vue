@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { usePrintersStore } from './stores/printers'
 import { useSettingsStore } from './stores/settings'
 import AddPrinterPrompt from './components/AddPrinterPrompt.vue'
+import StaleStorePrompt from './components/StaleStorePrompt.vue'
 
 let heartbeatTimer: number | null = null
 async function beat() {
@@ -88,5 +89,9 @@ onBeforeUnmount(() => {
       @later="promptLater"
       @never="promptNever"
     />
+
+    <!-- Stale store-list prompt — appears route-independently when a brand
+         store list is >30 days old and its notification is still active. -->
+    <StaleStorePrompt />
   </div>
 </template>

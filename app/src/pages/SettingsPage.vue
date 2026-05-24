@@ -2,8 +2,9 @@
 import { onMounted, ref, computed } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useHealthz } from '../composables/useHealthz'
-import { Database, Sparkles, AlertTriangle, Bot, CheckCircle2, XCircle } from 'lucide-vue-next'
+import { Database, Sparkles, AlertTriangle, Bot, CheckCircle2, XCircle, Bell } from 'lucide-vue-next'
 import type { AiProvider, AiTask } from '../types'
+import { useNotifications } from '../composables/useNotifications'
 
 const store = useSettingsStore()
 const message = ref<string | null>(null)
@@ -138,6 +139,51 @@ async function loadDemo() {
   } finally {
     demoBusy.value = false
   }
+}
+
+// ---------------------------------------------------------------------------
+// Notifications section
+// ---------------------------------------------------------------------------
+const notifs = useNotifications()
+
+// Reactive snapshots — recomputed via a computed that reads directly off the
+// settings store (which notifs mutations modify in-place).
+const disabledKeys = computed(() => notifs.disabledKeys())
+const snoozedEntries = computed(() => notifs.snoozedEntries())
+
+/** Decode a notification key to a human-readable label.
+ *  `store-stale:<slug>` → "Store update reminder — <Brand>", others → key as-is. */
+function labelFor(key: string): string {
+  const m = key.match(/^store-stale:(.+)$/)
+  if (m) {
+    const brand = m[1]
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+    return `Store update reminder — ${brand}`
+  }
+  return key
+}
+
+/** Format an ISO date string to a short localised date for "snoozed until". */
+function formatUntil(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+const resetConfirm = ref(false)
+
+async function handleEnable(key: string) {
+  await notifs.enable(key)
+}
+
+async function handleResetAll() {
+  if (!resetConfirm.value) {
+    resetConfirm.value = true
+    return
+  }
+  await notifs.resetAll()
+  resetConfirm.value = false
 }
 </script>
 
@@ -293,6 +339,85 @@ async function loadDemo() {
           </button>
           <span v-if="demoMsg" class="text-xs text-slate-400">{{ demoMsg }}</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Notifications section -->
+    <div class="grid gap-4 border-t border-slate-800 pt-6">
+      <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+        <Bell :size="16" /> Notifications
+      </h3>
+
+      <p class="text-xs text-slate-500 max-w-lg">
+        Notifications you have disabled or snoozed are listed here. Re-enable them to start receiving prompts again.
+      </p>
+
+      <!-- Empty state -->
+      <p
+        v-if="disabledKeys.length === 0 && snoozedEntries.length === 0"
+        class="text-sm text-slate-500"
+      >
+        No notifications are disabled.
+      </p>
+
+      <!-- Disabled -->
+      <div v-if="disabledKeys.length > 0" class="grid gap-2">
+        <p class="text-xs font-medium text-slate-400 uppercase tracking-wide">Disabled</p>
+        <div
+          v-for="key in disabledKeys"
+          :key="key"
+          class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
+        >
+          <span class="text-sm text-slate-300">{{ labelFor(key) }}</span>
+          <button
+            class="flex-none rounded px-2.5 py-1 text-xs font-medium bg-slate-700/60 border border-slate-600/60 text-slate-200 hover:bg-slate-700"
+            @click="handleEnable(key)"
+          >
+            Re-enable
+          </button>
+        </div>
+      </div>
+
+      <!-- Snoozed -->
+      <div v-if="snoozedEntries.length > 0" class="grid gap-2">
+        <p class="text-xs font-medium text-slate-400 uppercase tracking-wide">Snoozed</p>
+        <div
+          v-for="entry in snoozedEntries"
+          :key="entry.key"
+          class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
+        >
+          <div class="min-w-0">
+            <p class="text-sm text-slate-300">{{ labelFor(entry.key) }}</p>
+            <p class="text-xs text-slate-500">until {{ formatUntil(entry.until) }}</p>
+          </div>
+          <button
+            class="flex-none rounded px-2.5 py-1 text-xs font-medium bg-slate-700/60 border border-slate-600/60 text-slate-200 hover:bg-slate-700"
+            @click="handleEnable(entry.key)"
+          >
+            Re-enable now
+          </button>
+        </div>
+      </div>
+
+      <!-- Reset all -->
+      <div
+        v-if="disabledKeys.length > 0 || snoozedEntries.length > 0"
+        class="flex items-center gap-3"
+      >
+        <button
+          class="px-3 py-1.5 text-sm rounded border text-slate-300 hover:bg-slate-800"
+          :class="resetConfirm ? 'border-red-700/70 text-red-300 bg-red-900/20 hover:bg-red-900/30' : 'border-slate-700'"
+          @click="handleResetAll"
+        >
+          {{ resetConfirm ? 'Confirm — reset all notifications?' : 'Reset all notifications' }}
+        </button>
+        <button
+          v-if="resetConfirm"
+          class="px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-400 hover:bg-slate-800"
+          @click="resetConfirm = false"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </section>
