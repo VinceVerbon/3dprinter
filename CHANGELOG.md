@@ -4,6 +4,9 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+### Fixed
+- **Tauri installer now builds on Windows (first shipped artifact).** `npm run app:build` failed because the script invoked the CLI as `app/node_modules/.bin/tauri` — a forward-slash path with no `.cmd` extension that Windows `cmd.exe` can't resolve (`'app' is not recognized`). Changed it to bare `tauri` (npm puts `node_modules/.bin` on `PATH`, so it resolves cross-platform even after `cd ..`); same fix for `app:dev`. Also synced the stale version (`0.4.0` → `0.8.0`) in `app/package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` so the bundle is named correctly. Produces `Haspel_0.8.0_x64-setup.exe` (per-user NSIS) + `Haspel_0.8.0_x64_en-US.msi` (per-machine); smoke-tested the built `haspel.exe` (sidecar binds 127.0.0.1:5174, reads `%APPDATA%\Haspel\data`).
+
 ## [0.8.0] — 2026-05-25
 
 ### Added

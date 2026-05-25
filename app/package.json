@@ -1,7 +1,7 @@
 {
   "name": "3dprinter",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build:sidecar": "node ../scripts/build-sidecar.mjs",
-    "app:dev": "cd .. && app/node_modules/.bin/tauri dev",
-    "app:build": "node ../scripts/build-sidecar.mjs && cd .. && app/node_modules/.bin/tauri build"
+    "app:dev": "cd .. && tauri dev",
+    "app:build": "node ../scripts/build-sidecar.mjs && cd .. && tauri build"
   },
   "dependencies": {
     "lucide-vue-next": "^1.0.0",
