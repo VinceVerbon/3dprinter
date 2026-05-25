@@ -57,7 +57,7 @@ If you don't use a worktree, just don't edit files outside your chunk's allowed 
 - Add a `WATCHDOG_DISABLED=1` env escape hatch for development debugging.
 
 **AI lookup (`/lookup-filament`):**
-- Spawn `claude --print --output-format json --model claude-sonnet-4-6 "<PROMPT>"` via `child_process.spawn`. Use `claude.cmd` resolution that works on Windows (the binary is `C:\Users\<user>\AppData\Roaming\npm\claude.cmd` / `.ps1`). `npm` exposes it as `claude` on PATH; use `spawn('claude', ...)` with `{ shell: true }` on Windows OR resolve the .cmd explicitly.
+- Spawn `claude --print --output-format json --model claude-sonnet-4-6 "<PROMPT>"` via `child_process.spawn`. Use `claude.cmd` resolution that works on Windows (the binary is `%APPDATA%\npm\claude.cmd` / `.ps1`). `npm` exposes it as `claude` on PATH; use `spawn('claude', ...)` with `{ shell: true }` on Windows OR resolve the .cmd explicitly.
 - Prompt template (see `CLAUDE.md` → "AI usage") asks for strict JSON matching this schema:
   ```ts
   {
