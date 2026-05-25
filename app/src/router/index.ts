@@ -10,6 +10,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/labels', component: () => import('../pages/LabelsPage.vue') },
   { path: '/labels/logos', component: () => import('../pages/BrandLogosPage.vue') },
   { path: '/settings', component: () => import('../pages/SettingsPage.vue') },
+  { path: '/help', component: () => import('../pages/HelpPage.vue') },
 ]
 
 export const router = createRouter({ history: createWebHashHistory(), routes })

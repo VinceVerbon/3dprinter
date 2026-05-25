@@ -1,6 +1,6 @@
 [package]
 name = "haspel"
-version = "0.8.0"
+version = "0.9.0"
 description = "Haspel — 3D printer supplies tracker"
 authors = ["Haspel"]
 edition = "2021"

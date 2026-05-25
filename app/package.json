@@ -1,11 +1,11 @@
 {
   "name": "3dprinter",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "build": "vue-tsc -b && vite build && node ../scripts/build-docs.mjs --no-pdf",
     "preview": "vite preview",
     "tauri": "tauri",
     "build:sidecar": "node ../scripts/build-sidecar.mjs",

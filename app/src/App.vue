@@ -77,6 +77,9 @@ onBeforeUnmount(() => {
         <RouterLink to="/printers" class="hover:text-sky-400">Printers</RouterLink>
         <RouterLink to="/labels" class="hover:text-sky-400">Labels</RouterLink>
         <RouterLink to="/settings" class="hover:text-sky-400">Settings</RouterLink>
+        <!-- Help embeds the bundled user guide (app/dist/docs) via an iframe on a
+             dedicated route — works the same in the PWA and the Tauri webview. -->
+        <RouterLink to="/help" class="hover:text-sky-400">Help</RouterLink>
       </nav>
     </header>
     <main class="p-6">

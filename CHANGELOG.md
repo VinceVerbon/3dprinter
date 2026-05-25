@@ -4,6 +4,11 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-25
+
+### Added
+- **In-app Help — the user guide now ships with the app.** A new **Help** entry in the nav opens the full user guide (14 chapters) embedded on a `/help` route via an iframe. The guide is generated from `docs/user-guide/*.md` into `app/dist/docs/Haspel-User-Guide.html` as part of every production build (`npm run build` now runs `build-docs.mjs --no-pdf` after the Vite build), so it's bundled into the **Tauri installer** too — previously the installed app shipped with no manual and no way to open one. The embedded iframe is same-origin, so it works identically in the browser/PWA and inside the Tauri webview (no new-window dependency, app nav stays visible). The PWA service worker is told not to serve the SPA fallback for `/docs/` (`workbox.navigateFallbackDenylist`), so the guide loads correctly even under an active service worker. Verified at runtime (PWA, SW active): clicking Help → `/help` renders the manual in the iframe (inner document title "Haspel — User Guide").
+
 ### Fixed
 - **Tauri installer now builds on Windows (first shipped artifact).** `npm run app:build` failed because the script invoked the CLI as `app/node_modules/.bin/tauri` — a forward-slash path with no `.cmd` extension that Windows `cmd.exe` can't resolve (`'app' is not recognized`). Changed it to bare `tauri` (npm puts `node_modules/.bin` on `PATH`, so it resolves cross-platform even after `cd ..`); same fix for `app:dev`. Also synced the stale version (`0.4.0` → `0.8.0`) in `app/package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` so the bundle is named correctly. Produces `Haspel_0.8.0_x64-setup.exe` (per-user NSIS) + `Haspel_0.8.0_x64_en-US.msi` (per-machine); smoke-tested the built `haspel.exe` (sidecar binds 127.0.0.1:5174, reads `%APPDATA%\Haspel\data`).
 

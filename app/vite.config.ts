@@ -98,6 +98,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'app-icon.jpg', 'app-icon-192.png', 'app-icon-512.png'],
+      workbox: {
+        // The user guide (app/dist/docs/*) is generated AFTER vite build, so it
+        // isn't in the precache manifest. Without this, the SW's navigateFallback
+        // would serve index.html (the SPA) for a /docs/ navigation instead of the
+        // manual. Let /docs/ requests pass straight through to the bundled file.
+        navigateFallbackDenylist: [/^\/docs\//i],
+      },
       manifest: {
         name: 'Haspel — 3D Printer Supplies',
         short_name: 'Haspel',
