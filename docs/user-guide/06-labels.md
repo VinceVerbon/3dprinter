@@ -107,3 +107,9 @@ of four ways:
 If no logo is set for a brand, labels fall back to the text wordmark — so a label
 always prints *something* even before you've configured logos. Use **Reset** to
 clear a brand's setting.
+
+To do the whole list at once, use **Fetch all missing** at the top of the page.
+It auto-fetches a logo for every brand that doesn't have one yet (or whose last
+auto-fetch came up empty), shows live progress, and leaves brands you've set to
+**Text only** untouched. The button's number tells you how many are still
+outstanding; run it again later for any it couldn't find.

@@ -78,8 +78,9 @@ To add many filaments at once from a purchase, use **Import order** instead — 
 
 ## Editing and removing
 
-- **Edit** — click the pencil on a card, or **Edit** inside the detail view.
-  Change anything and **Save**.
+- **Edit** — click the pencil on a card, or **Edit** inside the detail view. The
+  edit form opens at the top of the page and Haspel scrolls up to it, so it's
+  clear you're editing. Change anything and **Save**.
 - **Remove** — click the remove button on a card. The filament leaves your active
   list but is **kept in History**, so you can restore it later. See
   [Filament history](10-filament-history.md).

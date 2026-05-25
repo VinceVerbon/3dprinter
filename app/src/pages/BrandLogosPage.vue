@@ -3,7 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
 import { useBrandLogosStore, brandSlug, type BrandLogoEntry } from '../stores/brandLogos'
 import { RouterLink } from 'vue-router'
-import { ArrowLeft, Download, Type, Upload, RotateCcw, Image as ImageIcon } from 'lucide-vue-next'
+import { ArrowLeft, Download, Type, Upload, RotateCcw, Image as ImageIcon, Loader2 } from 'lucide-vue-next'
 
 const filaments = useFilamentsStore()
 const logos = useBrandLogosStore()
@@ -45,10 +45,11 @@ async function persist(action: string) {
   setTimeout(() => (message.value = null), 4000)
 }
 
-async function autoFetch(brand: string) {
-  if (fetching.value.has(brand)) return
-  fetching.value.add(brand)
-  message.value = `Fetching logo for ${brand}…`
+/**
+ * Fetch one brand's logo and write the result into the store (in memory only —
+ * the caller persists). Returns the outcome so bulk + single callers can report.
+ */
+async function fetchLogoInto(brand: string): Promise<'fetched' | 'missing' | 'error'> {
   try {
     const r = await fetch('/api/fetch-logo', {
       method: 'POST',
@@ -57,22 +58,85 @@ async function autoFetch(brand: string) {
     })
     const body = await r.json()
     if (body.ok && body.value) {
-      logos.set(brand, {
-        kind: 'data-uri',
-        value: body.value,
-        domain: body.domain,
-        source: body.source,
-      })
-      await persist(`Logo fetched for ${brand}`)
-    } else {
-      logos.set(brand, { kind: 'missing' })
-      await persist(`No logo found for ${brand}`)
+      logos.set(brand, { kind: 'data-uri', value: body.value, domain: body.domain, source: body.source })
+      return 'fetched'
     }
-  } catch (e) {
-    message.value = `Fetch failed: ${(e as Error).message}`
-    setTimeout(() => (message.value = null), 4000)
+    // Endpoint reached, no logo found — record 'missing' so the UI shows it was tried.
+    logos.set(brand, { kind: 'missing' })
+    return 'missing'
+  } catch {
+    return 'error'
+  }
+}
+
+async function autoFetch(brand: string) {
+  if (fetching.value.has(brand)) return
+  fetching.value.add(brand)
+  message.value = `Fetching logo for ${brand}…`
+  try {
+    const outcome = await fetchLogoInto(brand)
+    if (outcome === 'error') {
+      message.value = `Fetch failed for ${brand}.`
+      setTimeout(() => (message.value = null), 4000)
+      return
+    }
+    await persist(outcome === 'fetched' ? `Logo fetched for ${brand}` : `No logo found for ${brand}`)
   } finally {
     fetching.value.delete(brand)
+  }
+}
+
+// --- Bulk: fetch every brand that has no available logo ---------------------
+// Targets brands with no entry or a prior 'missing' result (text-only is a
+// deliberate user choice, so it's left alone). Runs with limited concurrency,
+// reuses the per-row spinner, and persists once at the end (one atomic write,
+// no save races).
+const bulkFetching = ref(false)
+const bulkDone = ref(0)
+const bulkTotal = ref(0)
+
+const needLogoBrands = computed(() =>
+  brands.value.filter((b) => {
+    const e = entryFor(b)
+    return !e || e.kind === 'missing'
+  }),
+)
+
+async function fetchAllMissing() {
+  if (bulkFetching.value) return
+  const targets = needLogoBrands.value.slice()
+  if (targets.length === 0) {
+    message.value = 'Every brand already has a logo (or is set to text-only).'
+    setTimeout(() => (message.value = null), 4000)
+    return
+  }
+  bulkFetching.value = true
+  bulkTotal.value = targets.length
+  bulkDone.value = 0
+  let fetched = 0, stillMissing = 0, failed = 0
+  let cursor = 0
+  const CONCURRENCY = 4
+  const worker = async () => {
+    while (cursor < targets.length) {
+      const brand = targets[cursor++]
+      fetching.value.add(brand)
+      const outcome = await fetchLogoInto(brand)
+      fetching.value.delete(brand)
+      if (outcome === 'fetched') fetched++
+      else if (outcome === 'missing') stillMissing++
+      else failed++
+      bulkDone.value++
+      message.value = `Fetching logos… ${bulkDone.value}/${bulkTotal.value} (${fetched} found)`
+    }
+  }
+  try {
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker))
+    const saveRes = await logos.save()
+    const note = saveRes.ok ? '' : (saveRes.offlineFallback ? ' (saved locally — helper offline)' : ' (save failed!)')
+    message.value = `Done — ${fetched} fetched, ${stillMissing} not found${failed ? `, ${failed} failed` : ''}.${note}`
+    setTimeout(() => (message.value = null), 8000)
+  } finally {
+    bulkFetching.value = false
   }
 }
 
@@ -149,6 +213,17 @@ async function setUrl(brand: string, url: string) {
         <h2 class="text-lg font-semibold">Brand logos</h2>
         <span class="text-slate-500 text-sm">({{ brands.length }})</span>
       </div>
+
+      <button
+        v-if="needLogoBrands.length > 0 || bulkFetching"
+        @click="fetchAllMissing"
+        :disabled="bulkFetching"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-sky-600 hover:bg-sky-500 text-white disabled:opacity-60 shrink-0"
+      >
+        <Loader2 v-if="bulkFetching" :size="14" class="animate-spin" />
+        <Download v-else :size="14" />
+        {{ bulkFetching ? `Fetching ${bulkDone}/${bulkTotal}…` : `Fetch all missing (${needLogoBrands.length})` }}
+      </button>
     </header>
 
     <p class="text-xs text-slate-400 mb-4">

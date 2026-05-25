@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, nextTick, ref, computed } from 'vue'
 import { useFilamentsStore } from '../stores/filaments'
 import { useFilamentHistoryStore } from '../stores/filamentHistory'
 import { useFilamentLookup } from '../composables/useFilamentLookup'
@@ -220,10 +220,19 @@ function clearFilters() {
   filterColor.value = ''
 }
 
-function startAdd() { editing.value = undefined; showForm.value = true; message.value = null }
+const formAnchor = ref<HTMLElement | null>(null)
+// The add/edit form renders at the top of the page, above the list. When editing
+// a card further down, scroll the form into view so it's obvious you're now
+// editing (otherwise the viewport stays on the card and the form is off-screen).
+async function scrollToForm() {
+  await nextTick()
+  formAnchor.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function startAdd() { editing.value = undefined; showForm.value = true; message.value = null; void scrollToForm() }
 function startEdit(id: string) {
   const f = store.items.find(x => x.id === id)
-  if (f) { editing.value = f; showForm.value = true; message.value = null }
+  if (f) { editing.value = f; showForm.value = true; message.value = null; void scrollToForm() }
 }
 function openDetail(id: string) {
   const f = store.items.find(x => x.id === id)
@@ -405,7 +414,7 @@ function onImportDone() {
     <p v-if="message" class="text-sm text-slate-400 mb-3">{{ message }}</p>
     <p v-if="saving" class="text-xs text-slate-500 mb-3">Saving…</p>
 
-    <div v-if="showForm" class="mb-6">
+    <div v-if="showForm" ref="formAnchor" class="mb-6 scroll-mt-4">
       <FilamentForm
         :initial="editing"
         @submit="onSubmit"

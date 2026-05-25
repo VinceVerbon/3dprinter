@@ -4,6 +4,17 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-25
+
+### Added
+- **Brand logos: "Fetch all missing" bulk action.** The Brand logos page now has a one-click button (in the header, labelled with the outstanding count) that auto-fetches logos for **every** brand that has no logo yet or whose previous fetch came back empty (`missing`). It runs up to 4 in parallel, shows live progress (`Fetching 3/12… (2 found)`), reuses the per-row spinner, and writes once at the end (single atomic save, no write races). Brands explicitly set to *Text only* are left alone (deliberate choice). Verified at runtime: 6 seeded brands → 5 resolved via favicon/Clearbit, 1 bogus brand correctly recorded `missing`, count button updates to the remaining total.
+
+### Changed
+- **Editing a filament now scrolls the edit form into view.** The add/edit form renders at the top of the Filaments page; clicking *Edit* on a card lower down previously left the viewport on the card, so it wasn't obvious you'd entered edit mode. Selecting *Edit* (or *Add filament*) now smooth-scrolls to the top of the form. Verified at runtime: from a scrolled-down list, clicking Edit brings the form to the top of the viewport.
+
+### Fixed
+- **Navigation silently died after a PWA update (dead nav links / a dead "Add a printer" button).** Routes are code-split, so each page loads as a lazy `import()`. With the PWA's `registerType: 'autoUpdate'`, when a new build's service worker activates it purges the previous build's precached chunks; a tab still running the old bundle then requests a route chunk whose hashed filename no longer exists anywhere, the dynamic import rejects, and vue-router aborts the navigation **without any error or visible feedback**. The symptom was a nav link or the first-run "Add a printer" prompt appearing to do nothing (you stayed on Filaments). Added a `router.onError` self-heal in `app/src/router/index.ts`: a chunk-load failure now hard-reloads to the intended route (served by the now-active service worker, i.e. a consistent build), with a 10 s guard against reload loops. Proven at runtime by forcing the exact failure (service worker blocked, `/printers` chunk removed) and confirming the app recovers onto the Printers screen; verified no spurious reloads occur on a healthy build.
+
 ## [0.7.0] — 2026-05-24
 
 ### Changed
