@@ -5,6 +5,7 @@ All notable changes to **3dprinter** are documented here. Format: [Keep a Change
 ## [Unreleased]
 
 ### Changed
+- **README install section now links directly to the release downloads.** Replaced the placeholder "download from a release build" text with a link to `releases/latest` plus direct `.exe`/`.msi` links for the current release (v0.9.0). Also fixed the stale "Latest: v0.4.0" line in the Versioning section (now v0.9.0, pointing at `docs/release-notes/v0.9.0.md`).
 - **Decision: ship the installer unsigned for now (code signing deferred).** Evaluated the options: Azure Trusted Signing is US/Canada-only (unavailable here); a paid OV cert (~$200/yr) does **not** remove the SmartScreen warning either (reputation must still build, and resets every ≤3 years); only an EV cert (~$300–700/yr + hardware token) gives instant trust. The free [SignPath Foundation](https://signpath.org/terms.html) OSS route issues an OV cert (same reputation caveat) and **requires** an OSI-approved license + a trusted CI build pipeline (Origin Verification — no local-artifact signing). For a low-distribution personal tool that's not worth the setup yet; revisit if distribution grows. Documented the SmartScreen *"More info → Run anyway"* bypass in the README install section.
 
 ## [0.9.0] — 2026-05-25

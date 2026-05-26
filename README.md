@@ -46,10 +46,15 @@ labels, brand-store shopping).
 
 ## Install (native app)
 
-Download and run the installer from a release build:
+**[⬇ Download the latest release](https://github.com/VinceVerbon/3dprinter/releases/latest)**
+— pre-built Windows installers are attached to every GitHub Release:
 
-- `Haspel_<version>_x64_en-US.msi` (per-machine) or
-- `Haspel_<version>_x64-setup.exe` (per-user, no admin)
+- **`Haspel_<version>_x64-setup.exe`** — recommended (per-user, **no admin**)
+- **`Haspel_<version>_x64_en-US.msi`** — per-machine (requires admin)
+
+Direct links for the current release (**v0.9.0**):
+[`.exe`](https://github.com/VinceVerbon/3dprinter/releases/download/v0.9.0/Haspel_0.9.0_x64-setup.exe)
+· [`.msi`](https://github.com/VinceVerbon/3dprinter/releases/download/v0.9.0/Haspel_0.9.0_x64_en-US.msi)
 
 Launch **Haspel** from the Start menu / desktop shortcut. The app starts its own
 background helper automatically — **no PowerShell, no terminal, no tray icon**.
@@ -143,8 +148,8 @@ See `docs/dev-testing.md`.
 
 ## Versioning
 
-SemVer (pre-1.0 treats MINOR like post-1.0 MAJOR). Latest: **v0.4.0** — see
-`docs/release-notes/v0.4.0.md` and `CHANGELOG.md`.
+SemVer (pre-1.0 treats MINOR like post-1.0 MAJOR). Latest: **v0.9.0** — see
+`docs/release-notes/v0.9.0.md` and `CHANGELOG.md`.
 
 ## License
 
