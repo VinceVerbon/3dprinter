@@ -55,6 +55,13 @@ Launch **Haspel** from the Start menu / desktop shortcut. The app starts its own
 background helper automatically — **no PowerShell, no terminal, no tray icon**.
 Your data lives at `%APPDATA%\Haspel\data\` and survives reinstalls.
 
+> **Windows SmartScreen warning.** The installer is **not code-signed**, so on
+> first run Windows may show *"Windows protected your PC"* / *"unknown publisher."*
+> This is expected for an unsigned indie build — it is not a malware warning.
+> Click **More info → Run anyway** to proceed. (Code signing was evaluated and
+> deferred: paid OV certs don't remove the warning either, and the free
+> open-source route requires a CI pipeline — see the changelog.)
+
 Build the installer yourself (Windows; needs Rust + Node — see
 `docs/tauri-packaging.md`):
 
