@@ -8,8 +8,9 @@ import AddPrinterPrompt from './components/AddPrinterPrompt.vue'
 import StaleStorePrompt from './components/StaleStorePrompt.vue'
 
 // Gate the data UI on backend health. Until the helper answers /healthz we show
-// a "connecting" screen and auto-retry rather than render empty/broken pages.
-const { ready } = useBackendGate()
+// a "connecting" screen (then an explicit retryable error) and auto-retry,
+// rather than render empty/broken pages. No fail-open — the UI stays gated.
+const { ready, stalled, retry } = useBackendGate()
 
 let heartbeatTimer: number | null = null
 async function beat() {
@@ -74,12 +75,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100">
-    <!-- Backend not reachable yet: show a connecting state, never empty pages. -->
+    <!-- Backend not reachable yet: connecting → explicit retryable error. Never empty pages. -->
     <div v-if="!ready" class="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <img src="/app-icon-192.png" alt="Haspel" class="h-14 w-14 rounded-lg ring-1 ring-slate-700" />
-      <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-600 border-t-sky-400" aria-hidden="true"></div>
-      <p class="text-sm text-slate-300">Starting Haspel…</p>
-      <p class="max-w-sm text-xs text-slate-500">Connecting to the local helper. This recovers automatically — no need to refresh.</p>
+      <template v-if="!stalled">
+        <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-600 border-t-sky-400" aria-hidden="true"></div>
+        <p class="text-sm text-slate-300">Starting Haspel…</p>
+        <p class="max-w-sm text-xs text-slate-500">Connecting to the local helper.</p>
+      </template>
+      <template v-else>
+        <p class="text-sm font-medium text-amber-300">Can't reach the local helper</p>
+        <p class="max-w-sm text-xs text-slate-400">Haspel's background service isn't responding. It restarts itself automatically — still retrying every couple of seconds…</p>
+        <button type="button" class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500" @click="retry">Retry now</button>
+      </template>
     </div>
 
     <template v-else>
