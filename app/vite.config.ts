@@ -96,6 +96,14 @@ export default defineConfig({
     tailwindcss(),
     helperPlugin(),
     VitePWA({
+      // A precaching service worker is actively harmful inside the packaged
+      // WebView2 desktop app: it served a STALE app shell after updates (the
+      // "needs Ctrl+F5" bug) and could intercept /api calls. The assets are
+      // already local in both the desktop build and a LAN browser tab, so the
+      // SW buys nothing here. `selfDestroying` ships a worker that UNREGISTERS
+      // itself and purges old caches — so existing installs that still carry the
+      // bad SW heal themselves on next load, and no new caching SW is shipped.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'app-icon.jpg', 'app-icon-192.png', 'app-icon-512.png'],
       workbox: {

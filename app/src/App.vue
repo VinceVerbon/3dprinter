@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePrintersStore } from './stores/printers'
 import { useSettingsStore } from './stores/settings'
+import { useBackendGate } from './composables/useBackendGate'
 import AddPrinterPrompt from './components/AddPrinterPrompt.vue'
 import StaleStorePrompt from './components/StaleStorePrompt.vue'
+
+// Gate the data UI on backend health. Until the helper answers /healthz we show
+// a "connecting" screen and auto-retry rather than render empty/broken pages.
+const { ready } = useBackendGate()
 
 let heartbeatTimer: number | null = null
 async function beat() {
@@ -50,10 +55,16 @@ onMounted(() => {
   heartbeatTimer = window.setInterval(beat, 15_000)
   document.addEventListener('visibilitychange', onVisible)
   window.addEventListener('focus', beat)
-  // Drive the first-run prompt — needs printers + settings loaded.
+})
+
+// Load app-level data (incl. the first-run prompt inputs) only once the backend
+// is reachable, and re-drive it whenever the backend comes back. Both loads are
+// idempotent, so re-running on reconnect is safe.
+watch(ready, (r) => {
+  if (!r) return
   printers.load()
   settings.load()
-})
+}, { immediate: true })
 onBeforeUnmount(() => {
   if (heartbeatTimer != null) window.clearInterval(heartbeatTimer)
   document.removeEventListener('visibilitychange', onVisible)
@@ -63,6 +74,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100">
+    <!-- Backend not reachable yet: show a connecting state, never empty pages. -->
+    <div v-if="!ready" class="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <img src="/app-icon-192.png" alt="Haspel" class="h-14 w-14 rounded-lg ring-1 ring-slate-700" />
+      <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-600 border-t-sky-400" aria-hidden="true"></div>
+      <p class="text-sm text-slate-300">Starting Haspel…</p>
+      <p class="max-w-sm text-xs text-slate-500">Connecting to the local helper. This recovers automatically — no need to refresh.</p>
+    </div>
+
+    <template v-else>
     <header class="border-b border-slate-800 px-6 py-4 flex items-center gap-4 print-hide">
       <img src="/app-icon-192.png" alt="Haspel" class="w-10 h-10 rounded-md ring-1 ring-slate-700 flex-none" />
       <div>
@@ -96,5 +116,6 @@ onBeforeUnmount(() => {
     <!-- Stale store-list prompt — appears route-independently when a brand
          store list is >30 days old and its notification is still active. -->
     <StaleStorePrompt />
+    </template>
   </div>
 </template>

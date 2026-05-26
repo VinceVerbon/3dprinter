@@ -87,6 +87,17 @@ const VITE_PID = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 })();
 
+// Set by the Tauri shell when the packaged desktop app spawns this helper
+// (src-tauri/src/main.rs). Unlike VITE_PID this is a watch-ONLY parent: we exit
+// when the app process is gone, but we never signal it. This ties the helper's
+// lifetime to the desktop app PROCESS instead of to PWA heartbeats — so the
+// backend can never be reaped out from under a live app window, and it still
+// exits promptly (incl. on an app crash) so it never lingers as a zombie.
+const PARENT_PID = (() => {
+  const raw = parseInt(process.env.PARENT_PID || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+})();
+
 const STARTED_AT = new Date().toISOString();
 let watchdogResetAt = Date.now();
 let lastHeartbeatIso = null;
@@ -1697,6 +1708,23 @@ if (process.env.WATCHDOG_DISABLED === '1') {
   }, 5_000);
   watchdogTimer.unref();
   console.log(`watchdog: tracking vite pid=${VITE_PID} (heartbeat watchdog off in dev)`);
+} else if (PARENT_PID != null) {
+  // Packaged desktop app: the Tauri host spawned us and passed its own PID.
+  // Tie our lifetime to that process — NOT to PWA heartbeats. WebView2 throttles
+  // background timers and the machine can sleep, so a heartbeat watchdog would
+  // reap the backend while the app window is still open (the original bug). We
+  // exit promptly once the app process is actually gone (incl. a crash), so we
+  // never zombie. We never signal the parent (watch-only).
+  watchdogTimer = setInterval(() => {
+    try {
+      process.kill(PARENT_PID, 0); // signal 0 = liveness probe; throws if gone
+    } catch {
+      console.log(`watchdog: app pid=${PARENT_PID} is gone, exiting`);
+      process.exit(0);
+    }
+  }, 3_000);
+  watchdogTimer.unref();
+  console.log(`watchdog: tracking app pid=${PARENT_PID} (heartbeat watchdog off; packaged)`);
 } else {
   // Standalone: no parent to track, so fall back to a heartbeat watchdog. Make
   // it generous (default 10 min, overridable) so ordinary PWA backgrounding
